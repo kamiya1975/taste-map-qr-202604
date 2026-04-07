@@ -47,7 +47,7 @@ export default function TermsPage({ onClose }) {
         {/* ここに利用規約本文 */}
         <h3 style={{ margin: "8px 0" }}>TasteMap 利用規約</h3>
         <p style={{ margin: "8px 0" }}>
-          制定日：2026年2月1日<br></br>株式会社TasteDatabank（以下「当社」といいます。）
+          制定日：2026年2月1日<br></br>株式会社TasteDatabank（テイストデータバンク）（以下「当社」といいます。）
         </p>
         <h3 style={{ margin: "8px 0" }}>第1条（適用）</h3>
         <p style={{ margin: "8px 0" }}>
