@@ -1612,7 +1612,108 @@ function MapPage() {
     });
   }, []);
 
-  //////2026.04.以下の1セクション31行を追加
+  //////2026.04.以下の1セクション65行を追加
+  //---------------------------------------------------------------------------------
+  // 商品を開く共通関数
+  // - /products/:jan 上では URL を更新して商品を切り替える
+  // - /map 上では既存どおり state で Drawer を開く
+  const openWine = useCallback(
+    async (itemOrJan, opts = {}) => {
+      const janStr =
+        typeof itemOrJan === "string"
+          ? String(itemOrJan)
+          : String(getJanFromItem(itemOrJan));
+
+      if (!janStr) return;
+
+      const keepSearch = !!opts.preserveSearch;
+      const keepRated = !!opts.preserveRated;
+      const item =
+        typeof itemOrJan === "string"
+          ? (
+              basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+              data.find((d) => String(getJanFromItem(d)) === janStr) ||
+              null
+            )
+          : itemOrJan;
+
+      await closeUIsThen({
+        preserveMyPage: true,
+        preserveSearch: keepSearch,
+        preserveRated: keepRated,
+        preserveCluster: true,
+      });
+
+      setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+
+      const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
+
+      if (isProductsRoute) {
+        const params = new URLSearchParams(location.search);
+        navigate(
+          {
+            pathname: `/products/${encodeURIComponent(janStr)}`,
+            search: params.toString() ? `?${params.toString()}` : "",
+          },
+          { replace: false }
+        );
+        return;
+      }
+
+      setSelectedJAN(janStr);
+      setIframeNonce(Date.now());
+      setProductDrawerOpen(true);
+
+      if (item) {
+        focusOnWine(item, { recenter: false, zoom: opts.zoom });
+      }
+    },
+    [
+      basePoints,
+      data,
+      closeUIsThen,
+      location.pathname,
+      location.search,
+      navigate,
+      focusOnWine,
+    ]
+  );
+  //---------------------------------------------------------------------------------
+
+//  //////2026.04.以下の1セクション31行を追加
+//  //---------------------------------------------------------------------------------
+//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
+//  useEffect(() => {
+//    if (!routeJan) return;
+//
+//    const janStr = String(routeJan).trim();
+//    if (!janStr) return;
+//
+//    // 初回だけ open を確定
+//    if (routeJanHandledRef.current !== janStr) {
+//      routeJanHandledRef.current = janStr;
+//      setSelectedJAN(janStr);
+//      setProductDrawerOpen(true);
+//      setIframeNonce(Date.now());
+//    } else if (selectedJAN !== janStr) {
+//      setSelectedJAN(janStr);
+//    }
+//
+//    // 座標が分かるようになったら1回だけ寄せる
+//    if (routeJanCenteredRef.current === janStr) return;
+//
+//    const hit =
+//      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+//      data.find((d) => String(getJanFromItem(d)) === janStr);
+//
+//    if (!hit) return;
+//
+//    routeJanCenteredRef.current = janStr;
+//    didInitialCenterRef.current = true;
+//    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
+//  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
+//  //---------------------------------------------------------------------------------
+  //////2026.04.上記1セクションを 以下の1セクション28行と置き換え
   //---------------------------------------------------------------------------------
   // /products/:jan で来た時は MapPage 上で商品Drawerを開く
   useEffect(() => {
@@ -1621,15 +1722,11 @@ function MapPage() {
     const janStr = String(routeJan).trim();
     if (!janStr) return;
 
-    // 初回だけ open を確定
-    if (routeJanHandledRef.current !== janStr) {
-      routeJanHandledRef.current = janStr;
-      setSelectedJAN(janStr);
-      setProductDrawerOpen(true);
-      setIframeNonce(Date.now());
-    } else if (selectedJAN !== janStr) {
-      setSelectedJAN(janStr);
-    }
+    // URLが変わったら、そのJANを現在の正とする
+    routeJanHandledRef.current = janStr;
+    setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
+    setProductDrawerOpen(true);
+    setIframeNonce((n) => n + 1);
 
     // 座標が分かるようになったら1回だけ寄せる
     if (routeJanCenteredRef.current === janStr) return;
@@ -1643,9 +1740,9 @@ function MapPage() {
     routeJanCenteredRef.current = janStr;
     didInitialCenterRef.current = true;
     focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
-  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
+  }, [routeJan, basePoints, data, focusOnWine]);  
   //---------------------------------------------------------------------------------
-  
+
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
   const findNearestWineWorld = useCallback(
     (wx, wy) => {
@@ -2013,26 +2110,31 @@ function MapPage() {
         viewState={viewState}
         setViewState={setViewState}
         onOpenSlider={() => navigate("/slider")}
+//        ////2026.04.以下のonPickWineセクションを 以下のonPickWine 4行と置き換え
+//        onPickWine={async (item) => {
+//          if (!item) return;
+//
+//          const janStr = getJanFromItem(item);
+//          if (!janStr) {
+//            console.warn("onPickWine: JAN が取得できませんでした", item);
+//            return;
+//          }
+//
+//          await closeUIsThen({
+//            preserveMyPage: true,
+//            preserveSearch: true,
+//            preserveCluster: true,
+//          });
+//
+//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+//          setSelectedJAN(janStr);
+//          setIframeNonce(Date.now());
+//          setProductDrawerOpen(true);
+//          focusOnWine(item, { recenter: false });
+//        }}
         onPickWine={async (item) => {
           if (!item) return;
-
-          const janStr = getJanFromItem(item);
-          if (!janStr) {
-            console.warn("onPickWine: JAN が取得できませんでした", item);
-            return;
-          }
-
-          await closeUIsThen({
-            preserveMyPage: true,
-            preserveSearch: true,
-            preserveCluster: true,
-          });
-
-          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-          setSelectedJAN(janStr);
-          setIframeNonce(Date.now());
-          setProductDrawerOpen(true);
-          focusOnWine(item, { recenter: false });
+          await openWine(item);
         }}
         clusterColorMode={clusterColorMode}
         edgeMarginXPx={50}
@@ -2318,38 +2420,43 @@ function MapPage() {
         open={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         data={searchPanelData}
+//        //////2026.04.以下のonPickセクションを 以下のonPick 4行と置き換え
+//        onPick={async (item) => {
+//          if (!item) return;
+//
+//          const janStr = getJanFromItem(item);
+//          if (!janStr) {
+//            console.warn(
+//              "SearchPanel onPick: JAN が取得できませんでした",
+//              item
+//            );
+//            return;
+//          }
+//
+//          await closeUIsThen({
+//            preserveMyPage: true,
+//            preserveSearch: true,
+//            preserveCluster: true,
+//          });
+//
+//          // クラスターパネルを畳む
+//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+//
+//          setSelectedJAN(janStr);
+//
+//          setIframeNonce(Date.now());
+//
+//          const tx = Number(item.umap_x),
+//            ty = Number(item.umap_y);
+//          if (Number.isFinite(tx) && Number.isFinite(ty)) {
+//            centerToUMAP(tx, ty, { zoom: viewState.zoom });
+//          }
+//          setProductDrawerOpen(true);
+//        }}
         onPick={async (item) => {
           if (!item) return;
-
-          const janStr = getJanFromItem(item);
-          if (!janStr) {
-            console.warn(
-              "SearchPanel onPick: JAN が取得できませんでした",
-              item
-            );
-            return;
-          }
-
-          await closeUIsThen({
-            preserveMyPage: true,
-            preserveSearch: true,
-            preserveCluster: true,
-          });
-
-          // クラスターパネルを畳む
-          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-
-          setSelectedJAN(janStr);
-
-          setIframeNonce(Date.now());
-
-          const tx = Number(item.umap_x),
-            ty = Number(item.umap_y);
-          if (Number.isFinite(tx) && Number.isFinite(ty)) {
-            centerToUMAP(tx, ty, { zoom: viewState.zoom });
-          }
-          setProductDrawerOpen(true);
-        }}
+          await openWine(item, { preserveSearch: true, zoom: viewState.zoom });
+        }}        
         onScanClick={async () => {
           await closeUIsThen({ preserveCluster: true });
           setIsScannerOpen(true);
@@ -2400,28 +2507,37 @@ function MapPage() {
           const hit = data.find(
             (d) => String(getJanFromItem(d)) === jan
           );
+//          //////2026.04.以下1セクションを 以下8行と置き換え
+//          if (hit) {
+//            const janStr = getJanFromItem(hit);
+//            if (!janStr) return false;
+//
+//            await closeUIsThen({
+//              preserveMyPage: true,
+//              preserveCluster: true,
+//            });
+//
+//            setSelectedJAN(janStr);
+//
+//            setIframeNonce(Date.now());
+//            lastCommittedRef.current = { code: jan, at: now };
+//
+//            const tx = Number(hit.umap_x),
+//              ty = Number(hit.umap_y);
+//            if (Number.isFinite(tx) && Number.isFinite(ty)) {
+//              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
+//            }
+//            return true;
+//          }
           if (hit) {
             const janStr = getJanFromItem(hit);
             if (!janStr) return false;
 
-            await closeUIsThen({
-              preserveMyPage: true,
-              preserveCluster: true,
-            });
-
-            setSelectedJAN(janStr);
-
-            setIframeNonce(Date.now());
             lastCommittedRef.current = { code: jan, at: now };
-
-            const tx = Number(hit.umap_x),
-              ty = Number(hit.umap_y);
-            if (Number.isFinite(tx) && Number.isFinite(ty)) {
-              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
-            }
+            await openWine(hit, { zoom: INITIAL_ZOOM });
             return true;
           }
-
+          
           const lastWarn = unknownWarnedRef.current.get(jan) || 0;
           if (now - lastWarn > 12000) {
             alert(`JAN: ${jan} は見つかりませんでした。`);
@@ -2437,32 +2553,39 @@ function MapPage() {
         onClose={async () => {
           await closeUIsThen({ preserveCluster: true });
         }}
+//        //////2026.04.以下のonSelectJANセクションを 以下のonSelectJAN 6行と置き換え
+//        onSelectJAN={async (jan) => {
+//          await closeUIsThen({
+//            preserveMyPage: true,
+//            preserveRated: true,
+//            preserveCluster: true,
+//          });
+//
+//          // クラスターパネルを畳む
+//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+//
+//          try {
+//            sessionStorage.setItem("tm_from_rated_jan", String(jan));
+//          } catch {}
+//          setSelectedJAN(jan);
+//          setIframeNonce(Date.now());
+//          const item = data.find(
+//            (d) => String(getJanFromItem(d)) === String(jan)
+//          );
+//          if (item) {
+//            const tx = Number(item.umap_x),
+//              ty = Number(item.umap_y);
+//            if (Number.isFinite(tx) && Number.isFinite(ty)) {
+//              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
+//            }
+//          }
+//          setProductDrawerOpen(true);
+//        }}
         onSelectJAN={async (jan) => {
-          await closeUIsThen({
-            preserveMyPage: true,
-            preserveRated: true,
-            preserveCluster: true,
-          });
-
-          // クラスターパネルを畳む
-          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-
           try {
             sessionStorage.setItem("tm_from_rated_jan", String(jan));
           } catch {}
-          setSelectedJAN(jan);
-          setIframeNonce(Date.now());
-          const item = data.find(
-            (d) => String(getJanFromItem(d)) === String(jan)
-          );
-          if (item) {
-            const tx = Number(item.umap_x),
-              ty = Number(item.umap_y);
-            if (Number.isFinite(tx) && Number.isFinite(ty)) {
-              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
-            }
-          }
-          setProductDrawerOpen(true);
+          await openWine(String(jan), { preserveRated: true, zoom: INITIAL_ZOOM });
         }}
       />
 
