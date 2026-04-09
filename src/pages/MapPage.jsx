@@ -826,6 +826,11 @@ function MapPage() {
       if (!res.ok) throw new Error(`boot HTTP ${res.status}`);
 
       const json = await res.json();
+      //////2026.04.一時ログのため以下の4行を追加
+      console.log(
+        "[DEBUG] boot.active_jans sample =",
+        Array.isArray(json?.active_jans) ? json.active_jans.slice(0, 10) : json?.active_jans
+      );      
       const next = Array.isArray(json?.active_jans)
         ? json.active_jans.map(String).filter(Boolean)
         : [];
@@ -861,6 +866,14 @@ function MapPage() {
     if (!set) return list;
     return list.filter((d) => set.has(String(getJanFromItem(d))));
   }, [basePoints, visibleJansSet]);  
+
+  //////2026.04.一時ログ追加のため以下の6行を追加
+  useEffect(() => {
+    console.log("[DEBUG] data.length =", Array.isArray(data) ? data.length : -1);
+    console.log("[DEBUG] activeJans.length =", Array.isArray(activeJans) ? activeJans.length : -1);
+    console.log("[DEBUG] basePoints.length =", Array.isArray(basePoints) ? basePoints.length : -1);
+    console.log("[DEBUG] searchPanelData.length =", Array.isArray(searchPanelData) ? searchPanelData.length : -1);
+  }, [data, activeJans, basePoints, searchPanelData]);  
 
   //---------------------------------------------------------------------------------
   // ====== allowed-jans を読み直す共通関数 ======
