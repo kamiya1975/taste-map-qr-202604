@@ -1325,39 +1325,6 @@ function MapPage() {
     fetchPoints({ bust: false });
   }, [fetchPoints]);
 
-  //////2026.04.以下の1セクション31行を追加
-  //---------------------------------------------------------------------------------
-  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
-  useEffect(() => {
-    if (!routeJan) return;
-
-    const janStr = String(routeJan).trim();
-    if (!janStr) return;
-
-    // 初回だけ open を確定
-    if (routeJanHandledRef.current !== janStr) {
-      routeJanHandledRef.current = janStr;
-      setSelectedJAN(janStr);
-      setProductDrawerOpen(true);
-      setIframeNonce(Date.now());
-    } else if (selectedJAN !== janStr) {
-      setSelectedJAN(janStr);
-    }
-
-    // 座標が分かるようになったら1回だけ寄せる
-    if (routeJanCenteredRef.current === janStr) return;
-
-    const hit =
-      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-      data.find((d) => String(getJanFromItem(d)) === janStr);
-
-    if (!hit) return;
-
-    routeJanCenteredRef.current = janStr;
-    didInitialCenterRef.current = true;
-    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
-  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
-
   //////2026.04.以下の1セクション5行を追加
   //---------------------------------------------------------------------------------
   // boot 初回取得
@@ -1645,6 +1612,40 @@ function MapPage() {
     });
   }, []);
 
+  //////2026.04.以下の1セクション31行を追加
+  //---------------------------------------------------------------------------------
+  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
+  useEffect(() => {
+    if (!routeJan) return;
+
+    const janStr = String(routeJan).trim();
+    if (!janStr) return;
+
+    // 初回だけ open を確定
+    if (routeJanHandledRef.current !== janStr) {
+      routeJanHandledRef.current = janStr;
+      setSelectedJAN(janStr);
+      setProductDrawerOpen(true);
+      setIframeNonce(Date.now());
+    } else if (selectedJAN !== janStr) {
+      setSelectedJAN(janStr);
+    }
+
+    // 座標が分かるようになったら1回だけ寄せる
+    if (routeJanCenteredRef.current === janStr) return;
+
+    const hit =
+      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+      data.find((d) => String(getJanFromItem(d)) === janStr);
+
+    if (!hit) return;
+
+    routeJanCenteredRef.current = janStr;
+    didInitialCenterRef.current = true;
+    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
+  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
+  //---------------------------------------------------------------------------------
+  
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
   const findNearestWineWorld = useCallback(
     (wx, wy) => {
