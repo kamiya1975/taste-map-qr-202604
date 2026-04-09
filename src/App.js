@@ -47,8 +47,16 @@ export default function App() {
       <Route path="/" element={<IntroPage />} />
       <Route path="/store" element={<StorePage />} />
       <Route path="/slider" element={<SliderPage />} />
+      {/*2026.04.以下2行を以下の5行と置き換え
       <Route path="/map" element={<MapPage />} />
       <Route path="/products/:jan" element={<ProductPage />} />
+      */}
+      <Route path="/map" element={<MapPage />} />
+      {/* 展示会モデル: 背景Mapつき商品表示 */}
+      <Route path="/products/:jan" element={<MapPage />} />
+      {/* iframe専用の商品ページ */}
+      <Route path="/product-frame/:jan" element={<ProductPage />} />
+
       <Route path="/ec/return" element={<EcReturnPage />} />
       <Route path="/taste-log" element={<UserTastePage />} />
       <Route path="/scan-flow" element={<ScanAndProductFlow />} />
