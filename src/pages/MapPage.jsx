@@ -6,8 +6,9 @@
 //  - isSearchOpen / isRatedOpen / isMyPageOpen / cartOpen ... など 全パネルの開閉状態を一元管理
 //  - 商品詳細は Drawer + iframe(ProductPage) で開き、飲みたい/評価/カート の反映をしている
 
+//////2026.04.既存先頭2行を以下2行と置換え
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Drawer from "@mui/material/Drawer";
 
 import MapGuidePanelContent from "../components/panels/MapGuidePanelContent";
@@ -494,6 +495,8 @@ function MapPage() {
   const passThroughPaperSx = useMemo(() => ({ pointerEvents: "auto" }), []);
   const location = useLocation();
   const navigate = useNavigate();
+  //////2026.04.以下1行を追加
+  const { jan: routeJan } = useParams();
 
   // ログインユーザー名（ニックネーム）表示用
   const [userDisplayName, setUserDisplayName] = useState("");
@@ -558,7 +561,12 @@ function MapPage() {
   const manualRefreshSeqRef = useRef(0);
   // 更新ボタン（points再取得）の latest-only + abort
   const pointsFetchSeqRef = useRef(0);
-  const pointsAbortRef = useRef(null);  
+  const pointsAbortRef = useRef(null); 
+  //////2026.04.以下4行を追加
+  const bootFetchSeqRef = useRef(0);
+  const bootAbortRef = useRef(null);
+  const routeJanHandledRef = useRef("");
+  const routeJanCenteredRef = useRef("");
 
   // ---- Drawer 状態（すべて明示）----
   const [isMyPageOpen, setIsMyPageOpen] = useState(false); // アプリガイド（メニュー）
@@ -616,10 +624,47 @@ function MapPage() {
   const [cartEnabled, setCartEnabled] = useState(false);
   const [wishJansSet, setWishJansSet] = useState(() => new Set());
   const [wishVersion, setWishVersion] = useState(0);
+  //////2026.04.以下1行を追加
+  const [activeJans, setActiveJans] = useState([]);
 
   // wish の「即時反映（SET_WISHLIST）」が API 結果で戻されないようにする保険
   const wishOverrideRef = useRef(new Map()); // jan -> { value:boolean, at:number }
   const lastWishLocalAtRef = useRef(0);
+
+  //////2026.04.以下の1セクションすべてを追加
+  //---------------------------------------------------------------------------------
+  // QR流入: store_id があれば main_store_id 未設定時のみ保存
+  // - 既存値は上書きしない
+  // - 保存できたら storeContextKey を同期して allowed-jans 再取得の流れに乗せる
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const raw = params.get("store_id");
+      if (!raw) return;
+
+      const sid = Number(raw);
+      if (!Number.isFinite(sid) || sid <= 0) return;
+
+      const existing = getCurrentMainStoreIdSafe();
+      if (existing) return;
+
+      localStorage.setItem("main_store", String(sid));
+
+      // selectedStore が未設定なら最低限 main_store_id として読めるようにする
+      // （StorePanel 側の詳細オブジェクトはここでは作らない）
+      try {
+        const selectedStoreRaw = localStorage.getItem("selectedStore");
+        if (!selectedStoreRaw) {
+          localStorage.setItem("selectedStore", JSON.stringify({ store_id: sid }));
+        }
+      } catch {}
+
+      const nextKey = getStoreContextKeyFromStorage();
+      setStoreContextKey(nextKey);
+    } catch (e) {
+      console.warn("QR store_id save failed:", e);
+    }
+  }, [location.search]);  
 
   //---------------------------------------------------------------------------------
   // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
@@ -637,6 +682,18 @@ function MapPage() {
     }
   }, [navigate]);
 
+  //////2026.04.以下の1セクションを追加
+  //---------------------------------------------------------------------------------
+  // base層:
+  // points JSON（normalize済み data） ∩ boot.active_jans
+  const basePoints = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) return [];
+    if (!Array.isArray(activeJans) || activeJans.length === 0) return [];
+
+    const activeSet = new Set(activeJans.map(String));
+    return data.filter((d) => activeSet.has(String(getJanFromItem(d))));
+  }, [data, activeJans]);  
+
   //---------------------------------------------------------------------------------
   // ---- JanSet（ visibleJanSet, allJanSet ）----
   // --- 描画用の主集合（visible）---
@@ -649,14 +706,25 @@ function MapPage() {
     return null;        // null = 全点フォールバック扱い
   }, [allowedJansSet]);
 
+  //////2026.04.以下の1セクションを以下と置き換えのため削除
+//  // --- 全点フォールバック用 ---
+//  // 毎renderで new Set しない - data が変わった時だけ再計算
+//  const allJansSet = useMemo(() => {
+//    const list = Array.isArray(data) ? data : [];
+//    return new Set(
+//      list.map((d) => String(getJanFromItem(d))).filter(Boolean)
+//    );
+//  }, [data]);
+
+  //////2026.04.以下の1セクション8行と上記を置き換え
   // --- 全点フォールバック用 ---
-  // 毎renderで new Set しない - data が変わった時だけ再計算
+  // base層（points ∩ active_jans）を “表示してよい全打点” とする
   const allJansSet = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
+    const list = Array.isArray(basePoints) ? basePoints : [];
     return new Set(
       list.map((d) => String(getJanFromItem(d))).filter(Boolean)
     );
-  }, [data]);
+  }, [basePoints]);
 
   // --- MapCanvas に渡す “見える集合” を確定（参照安定）---
   const visibleJansSetForCanvas = useMemo(() => {
@@ -670,17 +738,33 @@ function MapPage() {
     return allowedJansSet.size > 0 ? allowedJansSet : null;
   }, [allowedJansSet]);
   
+  //////2026.04.以下の1セクションを以下と置き換えのため削除
+//  //---------------------------------------------------------------------------------
+//  // 商品iframe URL（店舗コンテキスト＆キャッシュバスト込み）
+//  // - ctx: 店舗コンテキスト（main/sub/token） - _  : iframeNonce（強制再読み込み用）
+//  const productIframeSrc = useMemo(() => {
+//    if (!selectedJAN) return "";
+//    const base = process.env.PUBLIC_URL || "";
+//    const jan = encodeURIComponent(String(selectedJAN));
+//    const ctx = encodeURIComponent(String(storeContextKey || ""));
+//    const nonce = encodeURIComponent(String(iframeNonce || 0));
+//    // HashRouter 前提： /#/products/:jan
+//    return `${base}/#/products/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
+//  }, [selectedJAN, storeContextKey, iframeNonce]); 
+
+  //////2026.04.以下の1セクション13行を上記と置き換え
   //---------------------------------------------------------------------------------
   // 商品iframe URL（店舗コンテキスト＆キャッシュバスト込み）
-  // - ctx: 店舗コンテキスト（main/sub/token） - _  : iframeNonce（強制再読み込み用）
+  // - ctx: 店舗コンテキスト（main/token）
+  // - _  : iframeNonce（強制再読み込み用）
   const productIframeSrc = useMemo(() => {
     if (!selectedJAN) return "";
     const base = process.env.PUBLIC_URL || "";
     const jan = encodeURIComponent(String(selectedJAN));
     const ctx = encodeURIComponent(String(storeContextKey || ""));
     const nonce = encodeURIComponent(String(iframeNonce || 0));
-    // HashRouter 前提： /#/products/:jan
-    return `${base}/#/products/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
+    // HashRouter 前提： /#/product-frame/:jan
+    return `${base}/#/product-frame/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
   }, [selectedJAN, storeContextKey, iframeNonce]);  
 
   //---------------------------------------------------------------------------------
@@ -724,16 +808,59 @@ function MapPage() {
     }
   }, []);
 
+  //////2026.04.以下1セクションすべてを追加
   //---------------------------------------------------------------------------------
-  // 検索パネルに渡すデータ（初期一覧表示 = 打点）
-  // - visibleJansSetがある → その集合に含まれる点だけ / visibleJansSetがnull → フォールバックで全点
+  // boot 取得（active_jans）
+  const fetchBoot = useCallback(async () => {
+    const seq = ++bootFetchSeqRef.current;
+
+    try { bootAbortRef.current?.abort?.(); } catch {}
+    const ac = new AbortController();
+    bootAbortRef.current = ac;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/app/boot`, {
+        cache: "no-store",
+        signal: ac.signal,
+      });
+      if (!res.ok) throw new Error(`boot HTTP ${res.status}`);
+
+      const json = await res.json();
+      const next = Array.isArray(json?.active_jans)
+        ? json.active_jans.map(String).filter(Boolean)
+        : [];
+
+      if (seq !== bootFetchSeqRef.current) return;
+      setActiveJans(next);
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      console.error("[MapPage] boot fetch error", e);
+    }
+  }, []);
+
+  //////2026.04.以下の1セクションを以下と置き換えのため削除
+//  //---------------------------------------------------------------------------------
+//  // 検索パネルに渡すデータ（初期一覧表示 = 打点）
+//  // - visibleJansSetがある → その集合に含まれる点だけ / visibleJansSetがnull → フォールバックで全点
+//  const searchPanelData = useMemo(() => {
+//    const list = Array.isArray(data) ? data : [];
+//    //visibleJansSet が null のときは全点を検索対象（PlanAの暫定フォールバック）
+//    const set = visibleJansSet instanceof Set ? visibleJansSet : null;
+//    if (!set) return list;
+//    return list.filter((d) => set.has(String(getJanFromItem(d))));
+//  }, [data, visibleJansSet]);
+
+  //////20206.04.以下の1セクション10行を上記と置き換え
+  //---------------------------------------------------------------------------------
+  // 検索パネルに渡すデータ
+  // - visibleJansSetがある → その集合に含まれる点だけ
+  // - visibleJansSetがnull → base層全点
   const searchPanelData = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    //visibleJansSet が null のときは全点を検索対象（PlanAの暫定フォールバック）
+    const list = Array.isArray(basePoints) ? basePoints : [];
     const set = visibleJansSet instanceof Set ? visibleJansSet : null;
     if (!set) return list;
     return list.filter((d) => set.has(String(getJanFromItem(d))));
-  }, [data, visibleJansSet]);
+  }, [basePoints, visibleJansSet]);  
 
   //---------------------------------------------------------------------------------
   // ====== allowed-jans を読み直す共通関数 ======
@@ -1197,6 +1324,46 @@ function MapPage() {
   useEffect(() => {
     fetchPoints({ bust: false });
   }, [fetchPoints]);
+
+  //////2026.04.以下の1セクション31行を追加
+  //---------------------------------------------------------------------------------
+  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
+  useEffect(() => {
+    if (!routeJan) return;
+
+    const janStr = String(routeJan).trim();
+    if (!janStr) return;
+
+    // 初回だけ open を確定
+    if (routeJanHandledRef.current !== janStr) {
+      routeJanHandledRef.current = janStr;
+      setSelectedJAN(janStr);
+      setProductDrawerOpen(true);
+      setIframeNonce(Date.now());
+    } else if (selectedJAN !== janStr) {
+      setSelectedJAN(janStr);
+    }
+
+    // 座標が分かるようになったら1回だけ寄せる
+    if (routeJanCenteredRef.current === janStr) return;
+
+    const hit =
+      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+      data.find((d) => String(getJanFromItem(d)) === janStr);
+
+    if (!hit) return;
+
+    routeJanCenteredRef.current = janStr;
+    didInitialCenterRef.current = true;
+    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
+  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
+
+  //////2026.04.以下の1セクション5行を追加
+  //---------------------------------------------------------------------------------
+  // boot 初回取得
+  useEffect(() => {
+    fetchBoot();
+  }, [fetchBoot]);
 
   //---------------------------------------------------------------------------------
   // スキャナ：未登録JANの警告リセット
@@ -1747,39 +1914,73 @@ function MapPage() {
     return false;
   }, []);
 
+  //////2026.04.以下の1セクションを以下と置き換えのため削除
+//  //---------------------------------------------------------------------------------
+//  // 更新ボタン（ボタンで呼ぶ手動更新）
+//  const runManualRefresh = useCallback(async () => {
+//    const seq = ++manualRefreshSeqRef.current;
+//    const startedAt = Date.now();
+//
+//    // 体感：先に「できる範囲で同期」を走らせる（全部 await しない）
+//    // 1) pointsは “更新反映” の主目的なので bust=true
+//    const p1 = fetchPoints({ bust: true });
+//    // 2) allowed-jans は店舗/EC/wish の再同期
+//    const p2 = reloadAllowedJans();
+//    // 3) rated-panel は rating復元の保険（tokenありのときだけ内部で動く）
+//    const p3 = syncRatedPanel();
+//    // 5) SW更新があれば適用（controllerchange→index.jsでreloadされる）
+//    //    ※ここで強制 reload() しない。SW切替が起きた時だけ reload される。
+//    const p4 = applyServiceWorkerUpdateIfAny();
+//
+//    try {
+//      await Promise.allSettled([p1, p2, p3, p4]);
+//    } finally {
+//      // latest-only（途中で連打されたら古い方は何もしない）
+//      if (seq !== manualRefreshSeqRef.current) return;
+//      setIframeNonce((n) => n + 1);
+//      console.log("[ManualRefresh] done", { ms: Date.now() - startedAt });
+//    }
+//  }, [fetchPoints, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
+
+  //////2026.04.以下の1セクション21行を上記を置き換え
   //---------------------------------------------------------------------------------
   // 更新ボタン（ボタンで呼ぶ手動更新）
   const runManualRefresh = useCallback(async () => {
     const seq = ++manualRefreshSeqRef.current;
     const startedAt = Date.now();
 
-    // 体感：先に「できる範囲で同期」を走らせる（全部 await しない）
-    // 1) pointsは “更新反映” の主目的なので bust=true
+    // 体感：先に「できる範囲で同期」を走らせる
     const p1 = fetchPoints({ bust: true });
-    // 2) allowed-jans は店舗/EC/wish の再同期
-    const p2 = reloadAllowedJans();
-    // 3) rated-panel は rating復元の保険（tokenありのときだけ内部で動く）
-    const p3 = syncRatedPanel();
-    // 5) SW更新があれば適用（controllerchange→index.jsでreloadされる）
-    //    ※ここで強制 reload() しない。SW切替が起きた時だけ reload される。
-    const p4 = applyServiceWorkerUpdateIfAny();
+    const p2 = fetchBoot();
+    const p3 = reloadAllowedJans();
+    const p4 = syncRatedPanel();
+    const p5 = applyServiceWorkerUpdateIfAny();
 
     try {
-      await Promise.allSettled([p1, p2, p3, p4]);
+      await Promise.allSettled([p1, p2, p3, p4, p5]);
     } finally {
-      // latest-only（途中で連打されたら古い方は何もしない）
       if (seq !== manualRefreshSeqRef.current) return;
       setIframeNonce((n) => n + 1);
       console.log("[ManualRefresh] done", { ms: Date.now() - startedAt });
     }
-  }, [fetchPoints, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
- 
-  // unmount時は進行中の points fetch を止める
+  }, [fetchPoints, fetchBoot, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
+
+  //////2026.04.以下1セクションを以下と置き換えのため削除
+//  // unmount時は進行中の points fetch を止める
+//  useEffect(() => {
+//    return () => {
+//      try { pointsAbortRef.current?.abort?.(); } catch {}
+//    };
+//  }, []);
+
+  //////2026.04.以下を上記1セクションと置き換え
+  // unmount時は進行中の fetch を止める
   useEffect(() => {
     return () => {
       try { pointsAbortRef.current?.abort?.(); } catch {}
+      try { bootAbortRef.current?.abort?.(); } catch {}
     };
-  }, []);
+  }, []);  
 
   //=================================================================================
   // ====== レンダリング
@@ -1787,6 +1988,8 @@ function MapPage() {
     <div id="map-root" className="map-root" tabIndex={-1}>
       <MapCanvas
         data={data}
+        //////2026.04.以下の1行を追加
+        basePoints={basePoints}
         // 店舗集合（意味の集合）：信頼できる時だけ意味を持つ
         storeJansSet={storeJansSet}
 
