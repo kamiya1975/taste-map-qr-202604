@@ -855,17 +855,14 @@ function MapPage() {
 //    return list.filter((d) => set.has(String(getJanFromItem(d))));
 //  }, [data, visibleJansSet]);
 
-  //////20206.04.以下の1セクション10行を上記と置き換え
+  //////20206.04.以下の1セクション7行を上記と置き換え
   //---------------------------------------------------------------------------------
   // 検索パネルに渡すデータ
-  // - visibleJansSetがある → その集合に含まれる点だけ
-  // - visibleJansSetがnull → base層全点
+  // - 一覧表示は base層全点をそのまま使う
+  // - 評価/飲みたいは別パネルで見る前提
   const searchPanelData = useMemo(() => {
-    const list = Array.isArray(basePoints) ? basePoints : [];
-    const set = visibleJansSet instanceof Set ? visibleJansSet : null;
-    if (!set) return list;
-    return list.filter((d) => set.has(String(getJanFromItem(d))));
-  }, [basePoints, visibleJansSet]);  
+    return Array.isArray(basePoints) ? basePoints : [];
+  }, [basePoints]);
 
   //////2026.04.一時ログ追加のため以下の6行を追加
   useEffect(() => {
