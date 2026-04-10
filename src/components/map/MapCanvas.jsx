@@ -16,7 +16,8 @@ import {
   GRID_CELL_SIZE,
   HEAT_GAMMA,
   HEAT_CLIP_PCT,
-  MAP_POINT_COLOR,
+//////2026.04.以下の1行を削除  
+//  MAP_POINT_COLOR,
   getClusterRGBA,
   // wishlist（飲みたい）★は constants を正とする（色/サイズの調整点を一本化）
   WISH_STAR_COLOR,
