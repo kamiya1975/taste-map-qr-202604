@@ -364,14 +364,58 @@ const MapCanvas = forwardRef(function MapCanvas(
     return { storePoints: store, ecPoints: ec };
   }, [filteredData, allowedJansSet, ecOnlyJansSet]);
 
+//////2026.04.以下の1セクションを以下と置き換えるため削除
+//  // --- 商品打点に付くバブル用データ（highlight2D=PC1/PC2/PC3 などの値→t[0..1]へ正規化） ---
+//  const pointBubbles = useMemo(() => {
+//    if (!highlight2D) return [];
+//
+//    // 値分布（外れ値カットは従来ヒートと同じ HEAT_CLIP_PCT を踏襲）
+//    const vals = filteredData
+//      .map(d => Number(d[highlight2D]))
+//      .filter(v => Number.isFinite(v));
+//    if (!vals.length) return [];
+//
+//    vals.sort((a, b) => a - b);
+//    const loIdx = Math.floor(HEAT_CLIP_PCT[0] * (vals.length - 1));
+//    const hiIdx = Math.floor(HEAT_CLIP_PCT[1] * (vals.length - 1));
+//    const lo = vals[loIdx];
+//    const hi = vals[hiIdx];
+//    const vHi = hi - lo < 1e-9 ? lo + 1e-9 : hi;
+//
+//    // 各商品点へ t と座標を付与
+//    return filteredData
+//      .map(d => {
+//        const v = Number(d[highlight2D]);
+//        if (!Number.isFinite(v)) return null;
+//        let t = (v - lo) / ((vHi - lo) || 1e-9);
+//        t = Math.max(0, Math.min(1, Math.pow(t, HEAT_GAMMA))); // ガンマ補正
+//
+//        const x = xOf(d);
+//        const y = yOf(d);
+//        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+//
+//        return {
+//          jan: janOf(d),
+//          position: [x, -y, 0],
+//          t,
+//          cluster: clusterOf(d),
+//        };
+//      })
+//    .filter(Boolean);
+//  }, [filteredData, highlight2D]);
+
+  //////2026.04.上記を以下の1セクション42行と置き換え
   // --- 商品打点に付くバブル用データ（highlight2D=PC1/PC2/PC3 などの値→t[0..1]へ正規化） ---
+  // base層も既存文脈点も同じようにバブル対象にする
   const pointBubbles = useMemo(() => {
     if (!highlight2D) return [];
 
+    const src = Array.isArray(basePoints) ? basePoints : [];
+
     // 値分布（外れ値カットは従来ヒートと同じ HEAT_CLIP_PCT を踏襲）
-    const vals = filteredData
-      .map(d => Number(d[highlight2D]))
-      .filter(v => Number.isFinite(v));
+    const vals = src
+      .map((d) => Number(d[highlight2D]))
+      .filter((v) => Number.isFinite(v));
     if (!vals.length) return [];
 
     vals.sort((a, b) => a - b);
@@ -382,10 +426,11 @@ const MapCanvas = forwardRef(function MapCanvas(
     const vHi = hi - lo < 1e-9 ? lo + 1e-9 : hi;
 
     // 各商品点へ t と座標を付与
-    return filteredData
-      .map(d => {
+    return src
+      .map((d) => {
         const v = Number(d[highlight2D]);
         if (!Number.isFinite(v)) return null;
+
         let t = (v - lo) / ((vHi - lo) || 1e-9);
         t = Math.max(0, Math.min(1, Math.pow(t, HEAT_GAMMA))); // ガンマ補正
 
@@ -400,8 +445,8 @@ const MapCanvas = forwardRef(function MapCanvas(
           cluster: clusterOf(d),
         };
       })
-    .filter(Boolean);
-  }, [filteredData, highlight2D]);
+      .filter(Boolean);
+  }, [basePoints, highlight2D]);
 
   // 初期クランプ
   useEffect(() => {
