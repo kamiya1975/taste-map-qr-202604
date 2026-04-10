@@ -35,7 +35,7 @@ const TILE_OCHRE = `${process.env.PUBLIC_URL || ""}/img/ochre-tile.png`;
 //////2026.04.以下の3行を追加
 const BASE_GRAY = [160, 160, 160, 220];          // 新base
 const STORE_ORANGE = STAR_ORANGE;                // 既存グレー → オレンジ
-const EC_YELLOW = [216, 209, 119, 255];          // 既存オレンジ → 黄色
+const EC_YELLOW = [235, 220,  80, 255];          // 既存オレンジ → 黄色
 
 // ===== 正規化ユーティリティ（MapPageと整合）2025.12.20.追加=====
 const toNumOrNull = (v) => {
