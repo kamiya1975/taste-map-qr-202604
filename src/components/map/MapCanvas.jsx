@@ -31,6 +31,10 @@ const WISH_STAR_RGBA = WISH_STAR_COLOR; // [178, 53, 103, 255] を想定
 const STAR_ORANGE = [247, 147, 30, 255]; // #F7931E くらいのオレンジ
 const TILE_GRAY = `${process.env.PUBLIC_URL || ""}/img/gray-tile.png`;
 const TILE_OCHRE = `${process.env.PUBLIC_URL || ""}/img/ochre-tile.png`;
+//////2026.04.以下の3行を追加
+const BASE_GRAY = [180, 180, 180, 120];          // 新base
+const STORE_ORANGE = STAR_ORANGE;                // 既存グレー → オレンジ
+const EC_YELLOW = [216, 209, 119, 255];          // 既存オレンジ → 黄色
 
 // ===== 正規化ユーティリティ（MapPageと整合）2025.12.20.追加=====
 const toNumOrNull = (v) => {
@@ -223,6 +227,8 @@ function clampViewState(nextVS, panBounds, sizePx, margins = {}) {
 const MapCanvas = forwardRef(function MapCanvas(
   {
     data,
+    //////2026.04.以下の1行を追加
+    basePoints,
     visibleJansSet,
     allowedJansSet,
     ecOnlyJansSet,
@@ -568,6 +574,34 @@ const MapCanvas = forwardRef(function MapCanvas(
     return [outer, innerWhite];
   }, [filteredData, selectedJAN]);
 
+  //////2026.04.以下の1セクション26行を追加
+  // --- レイヤ：base（常時表示の土台） ---
+  const baseLayer = useMemo(() => {
+    if (!Array.isArray(basePoints) || basePoints.length === 0) return null;
+
+    return new ScatterplotLayer({
+      id: "base-points",
+      data: basePoints,
+      getPosition: (d) => {
+        const x = xOf(d), y = yOf(d);
+        return [x, -y, 0];
+      },
+      getFillColor: (d) => {
+        const janStr = janOf(d);
+        if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;
+        if (clusterColorMode) return BASE_GRAY;   // クラスタ色ONでもbaseはグレー維持
+        return BASE_GRAY;
+      },
+      updateTriggers: {
+        getFillColor: [userRatings, clusterColorMode],
+      },
+      radiusUnits: "meters",
+      getRadius: clusterColorMode ? MAP_POINT_RADIUS_CLUSTER : MAP_POINT_RADIUS,
+      pickable: true,
+      parameters: { depthTest: false },
+    });
+  }, [basePoints, userRatings, clusterColorMode]);
+
   // --- レイヤ：打点（店舗商品＋通常点） ---
   const mainLayer = useMemo(
     () =>
@@ -585,7 +619,9 @@ const MapCanvas = forwardRef(function MapCanvas(
           if (clusterColorMode && Number.isFinite(c)) {
             return getClusterRGBA(c);
           }
-          return MAP_POINT_COLOR;
+          //////2026.04.以下の1行を以下の1行と置き換え
+          //return MAP_POINT_COLOR;
+          return STORE_ORANGE;
         },
         updateTriggers: {
           getFillColor: [clusterColorMode, userRatings],
@@ -628,7 +664,9 @@ const MapCanvas = forwardRef(function MapCanvas(
         if (clusterColorMode && Number.isFinite(d.cluster)) {
           return getClusterRGBA(d.cluster);
         }
-        return STAR_ORANGE; // ← EC扱いはオレンジ●
+        //////2026.04.以下の1行を以下の1行と置き換え
+        //return STAR_ORANGE; // ← EC扱いはオレンジ●
+        return EC_YELLOW;
       },
       updateTriggers: {
         getFillColor: [clusterColorMode, userRatings],
@@ -1044,10 +1082,20 @@ const MapCanvas = forwardRef(function MapCanvas(
         compassLayer,
         anchorCompassLayer,
 
-        // 打点（店舗商品の ●グレイ）
+        //////2026.04.以下の2点を 以下の3点と置き換え（baseLayer, mainLayer, ecPointLayer）
+//        // 打点（店舗商品の ●グレイ）
+//        mainLayer,
+//
+//        // EC専用商品の ●オレンジ
+//        ecPointLayer,
+
+        // base（土台の全打点追加 → グレイ）
+        baseLayer,
+
+        // 打点 店舗商品の●（既存グレー → オレンジ）
         mainLayer,
 
-        // EC専用商品の ●オレンジ
+        // EC専用商品の●（既存オレンジ → 黄色）
         ecPointLayer,
 
         // 飲みたい ★赤（store/ec の上に重ねる）
