@@ -574,6 +574,15 @@ const MapCanvas = forwardRef(function MapCanvas(
     return Array.from(map.values());
   }, [filteredData, userRatings]);
 
+  //////2026.04.以下の1セクション7行を追加
+  // --- base層専用セル（既存文脈セルと重ならないものだけ） ---
+  const baseOnlyCells = useMemo(() => {
+    const usedKeys = new Set(
+      (cells || []).map((c) => keyOf(c.ix, c.iy))
+    );
+    return (baseCells || []).filter((c) => !usedKeys.has(keyOf(c.ix, c.iy)));
+  }, [baseCells, cells]);
+  
   // ベクタで描く選択ドット
   const selectedDotLayers = useMemo(() => {
     if (!selectedJAN) return [];
@@ -1057,10 +1066,10 @@ const MapCanvas = forwardRef(function MapCanvas(
         }),
 
         //////2026.04.以下の1セクション23行を追加
-        // ①-0 base層の地模様タイル
+        // ①-0 base層の地模様タイル / 既存文脈セルと重ならない部分だけ
         (!highlight2D && !clusterColorMode) ? new IconLayer({
           id: "base-cell-tiles",
-          data: baseCells,
+          data: baseOnlyCells,          
           getPosition: (d) => d.center,
           getIcon: () => ({
             url: TILE_GRAY,
