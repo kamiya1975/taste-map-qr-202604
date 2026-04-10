@@ -33,7 +33,7 @@ const STAR_ORANGE = [247, 147, 30, 255]; // #F7931E くらいのオレンジ
 const TILE_GRAY = `${process.env.PUBLIC_URL || ""}/img/gray-tile.png`;
 const TILE_OCHRE = `${process.env.PUBLIC_URL || ""}/img/ochre-tile.png`;
 //////2026.04.以下の3行を追加
-const BASE_GRAY = [180, 180, 180, 120];          // 新base
+const BASE_GRAY = [160, 160, 160, 220];          // 新base
 const STORE_ORANGE = STAR_ORANGE;                // 既存グレー → オレンジ
 const EC_YELLOW = [216, 209, 119, 255];          // 既存オレンジ → 黄色
 
@@ -506,6 +506,41 @@ const MapCanvas = forwardRef(function MapCanvas(
     return { thinLines: thin, thickLines: thick };
   }, []);
 
+  //////2026.04.以下の1セクション33行を追加
+  // --- セル集計（base層用） ---
+  const baseCells = useMemo(() => {
+    const map = new Map();
+    const src = Array.isArray(basePoints) ? basePoints : [];
+
+    src.forEach((d) => {
+      const x = xOf(d);
+      const y = yOf(d);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+      const ix = toIndex(x);
+      const iy = toIndex(-y);
+      const key = keyOf(ix, iy);
+
+      if (!map.has(key)) {
+        map.set(key, {
+          ix,
+          iy,
+          position: [toCorner(ix), toCorner(iy)],
+          center: [
+            toCorner(ix) + GRID_CELL_SIZE / 2,
+            toCorner(iy) + GRID_CELL_SIZE / 2,
+            0,
+          ],
+          count: 0,
+        });
+      }
+
+      map.get(key).count += 1;
+    });
+
+    return Array.from(map.values());
+  }, [basePoints]);
+
   // --- セル集計（評価フラグ） ---
   const cells = useMemo(() => {
     const map = new Map();
@@ -575,7 +610,7 @@ const MapCanvas = forwardRef(function MapCanvas(
     return [outer, innerWhite];
   }, [filteredData, selectedJAN]);
 
-  //////2026.04.以下の1セクション26行を追加
+  //////2026.04.以下の1セクション31行を追加（getFillColorのセクションを以下に変更済み）
   // --- レイヤ：base（常時表示の土台） ---
   const baseLayer = useMemo(() => {
     if (!Array.isArray(basePoints) || basePoints.length === 0) return null;
@@ -590,7 +625,12 @@ const MapCanvas = forwardRef(function MapCanvas(
       getFillColor: (d) => {
         const janStr = janOf(d);
         if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;
-        if (clusterColorMode) return BASE_GRAY;   // クラスタ色ONでもbaseはグレー維持
+
+        const c = clusterOf(d);
+        if (clusterColorMode && Number.isFinite(c)) {
+          return getClusterRGBA(c);
+        }
+
         return BASE_GRAY;
       },
       updateTriggers: {
@@ -1016,7 +1056,32 @@ const MapCanvas = forwardRef(function MapCanvas(
           widthUnits: "pixels",
         }),
 
-        // ① セルの地模様（タイル）は「バブル無し かつ クラスタ色OFFのときだけ」表示
+        //////2026.04.以下の1セクション23行を追加
+        // ①-0 base層の地模様タイル
+        (!highlight2D && !clusterColorMode) ? new IconLayer({
+          id: "base-cell-tiles",
+          data: baseCells,
+          getPosition: (d) => d.center,
+          getIcon: () => ({
+            url: TILE_GRAY,
+            width: 32,
+            height: 32,
+            anchorX: 16,
+            anchorY: 16,
+          }),
+          sizeUnits: "meters",
+          getSize: GRID_CELL_SIZE,
+          billboard: true,
+          pickable: false,
+          parameters: { depthTest: false },
+          updateTriggers: {
+            getIcon: [GRID_CELL_SIZE],
+            getPosition: [GRID_CELL_SIZE],
+            getSize: [GRID_CELL_SIZE],
+          },
+        }) : null,
+
+        // ① 既存文脈側のセル地模様タイル / セルの地模様（タイル）は「バブル無し かつ クラスタ色OFFのときだけ」表示
         (!highlight2D && !clusterColorMode) ? new IconLayer({
           id: "cell-tiles",
           data: cells,
