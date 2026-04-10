@@ -1658,7 +1658,23 @@ function MapPage() {
 
       const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
 
+      //////2026.04.以下1セクションを以下と置き換えのため削除
+//      if (isProductsRoute) {
+//        const params = new URLSearchParams(location.search);
+//        navigate(
+//          {
+//            pathname: `/products/${encodeURIComponent(janStr)}`,
+//            search: params.toString() ? `?${params.toString()}` : "",
+//          },
+//          { replace: false }
+//        );
+//        return;
+//      }
+      //////2026.04.上記を以下の1セクション14行と置き換え
       if (isProductsRoute) {
+        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
+        routeJanCenteredRef.current = "";
+
         const params = new URLSearchParams(location.search);
         navigate(
           {

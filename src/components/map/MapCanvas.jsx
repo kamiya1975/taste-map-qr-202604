@@ -628,20 +628,62 @@ const MapCanvas = forwardRef(function MapCanvas(
     return (baseCells || []).filter((c) => !usedKeys.has(keyOf(c.ix, c.iy)));
   }, [baseCells, cells]);
   
+  //////2026.04.以下の1セクションを以下と置き換えのため削除
+//  // ベクタで描く選択ドット
+//  const selectedDotLayers = useMemo(() => {
+//    if (!selectedJAN) return [];
+//    const hit = filteredData.find(d => janOf(d) === String(selectedJAN));
+//    if (!hit || !Number.isFinite(xOf(hit)) || !Number.isFinite(yOf(hit))) return [];
+//
+//    const pos = [xOf(hit), -yOf(hit), 0];
+//    const R = 0.1; // ベース半径（見た目サイズ。0.14〜0.20で好み調整）
+//
+//    // 外側の黒丸
+//    const outer = new ScatterplotLayer({
+//      id: "selected-dot-outer",
+//      data: [{ position: pos }],
+//      getPosition: d => d.position,
+//      getFillColor: [0, 0, 0, 255],
+//      radiusUnits: "meters",
+//      getRadius: R,
+//      pickable: false,
+//      parameters: { depthTest: false },
+//    });
+//
+//    // 中の白丸（リングに見せる）
+//    const innerWhite = new ScatterplotLayer({
+//      id: "selected-dot-inner-white",
+//      data: [{ position: pos }],
+//      getPosition: d => d.position,
+//      getFillColor: [255, 255, 255, 255],
+//      radiusUnits: "meters",
+//      getRadius: R * 0.58, // リング幅の比率（0.55〜0.65で調整）
+//      pickable: false,
+//      parameters: { depthTest: false },
+//    });
+//
+//    return [outer, innerWhite];
+//  }, [filteredData, selectedJAN]);
+  //////2026.04.上記を以下の1セクション41行と置き換え
   // ベクタで描く選択ドット
   const selectedDotLayers = useMemo(() => {
     if (!selectedJAN) return [];
-    const hit = filteredData.find(d => janOf(d) === String(selectedJAN));
+
+    const baseList = Array.isArray(basePoints) ? basePoints : [];
+    const hit =
+      baseList.find((d) => janOf(d) === String(selectedJAN)) ||
+      filteredData.find((d) => janOf(d) === String(selectedJAN));
+
     if (!hit || !Number.isFinite(xOf(hit)) || !Number.isFinite(yOf(hit))) return [];
 
     const pos = [xOf(hit), -yOf(hit), 0];
-    const R = 0.1; // ベース半径（見た目サイズ。0.14〜0.20で好み調整）
+    const R = 0.1;
 
     // 外側の黒丸
     const outer = new ScatterplotLayer({
       id: "selected-dot-outer",
       data: [{ position: pos }],
-      getPosition: d => d.position,
+      getPosition: (d) => d.position,
       getFillColor: [0, 0, 0, 255],
       radiusUnits: "meters",
       getRadius: R,
@@ -653,16 +695,16 @@ const MapCanvas = forwardRef(function MapCanvas(
     const innerWhite = new ScatterplotLayer({
       id: "selected-dot-inner-white",
       data: [{ position: pos }],
-      getPosition: d => d.position,
+      getPosition: (d) => d.position,
       getFillColor: [255, 255, 255, 255],
       radiusUnits: "meters",
-      getRadius: R * 0.58, // リング幅の比率（0.55〜0.65で調整）
+      getRadius: R * 0.58,
       pickable: false,
       parameters: { depthTest: false },
     });
 
     return [outer, innerWhite];
-  }, [filteredData, selectedJAN]);
+  }, [basePoints, filteredData, selectedJAN]);  
 
   //////2026.04.以下の1セクション31行を追加（getFillColorのセクションを以下に変更済み）
   // --- レイヤ：base（常時表示の土台） ---
