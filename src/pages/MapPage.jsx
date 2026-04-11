@@ -1670,12 +1670,25 @@ function MapPage() {
 //        );
 //        return;
 //      }
-      //////2026.04.上記を以下の1セクション14行と置き換え
+      //////2026.04.上記を以下の1セクション14行と置き換えのため削除
+//      if (isProductsRoute) {
+//        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
+//        routeJanCenteredRef.current = "";
+//
+//        const params = new URLSearchParams(location.search);
+//        navigate(
+//          {
+//            pathname: `/products/${encodeURIComponent(janStr)}`,
+//            search: params.toString() ? `?${params.toString()}` : "",
+//          },
+//          { replace: false }
+//        );
+//        return;
+//      }
+      //////2026.04.上記を以下の1セクション16行と置き換え
       if (isProductsRoute) {
-        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
-        routeJanCenteredRef.current = "";
-
         const params = new URLSearchParams(location.search);
+
         navigate(
           {
             pathname: `/products/${encodeURIComponent(janStr)}`,
@@ -1683,15 +1696,22 @@ function MapPage() {
           },
           { replace: false }
         );
+        // ← ここが追加ポイント　中心移動のため
+        if (item) {
+          focusOnWine(item, { zoom: opts.zoom });
+        }
         return;
       }
-
       setSelectedJAN(janStr);
       setIframeNonce(Date.now());
       setProductDrawerOpen(true);
-
+      //////2026.04.以下を以下3行と置き換えのため削除
+//      if (item) {
+//        focusOnWine(item, { recenter: false, zoom: opts.zoom });
+//      }
+      //////2026.04.上記を以下3行と置き換え
       if (item) {
-        focusOnWine(item, { recenter: false, zoom: opts.zoom });
+        focusOnWine(item, { zoom: opts.zoom });
       }
     },
     [
