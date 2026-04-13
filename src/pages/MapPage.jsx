@@ -1760,6 +1760,35 @@ function MapPage() {
 //  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
 //  //---------------------------------------------------------------------------------
   //////2026.04.上記1セクションを 以下の1セクション28行と置き換え
+//  //---------------------------------------------------------------------------------
+//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
+//  useEffect(() => {
+//    if (!routeJan) return;
+//
+//    const janStr = String(routeJan).trim();
+//    if (!janStr) return;
+//
+//    // URLが変わったら、そのJANを現在の正とする
+//    routeJanHandledRef.current = janStr;
+//    setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
+//    setProductDrawerOpen(true);
+//    setIframeNonce((n) => n + 1);
+//
+//    // 座標が分かるようになったら1回だけ寄せる
+//    if (routeJanCenteredRef.current === janStr) return;
+//
+//    const hit =
+//      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+//      data.find((d) => String(getJanFromItem(d)) === janStr);
+//
+//    if (!hit) return;
+//
+//    routeJanCenteredRef.current = janStr;
+//    didInitialCenterRef.current = true;
+//    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
+//  }, [routeJan, basePoints, data, focusOnWine]);  
+
+  //////2026.04.上記1セクションを 以下の1セクション34行と置き換え
   //---------------------------------------------------------------------------------
   // /products/:jan で来た時は MapPage 上で商品Drawerを開く
   useEffect(() => {
@@ -1768,24 +1797,31 @@ function MapPage() {
     const janStr = String(routeJan).trim();
     if (!janStr) return;
 
-    // URLが変わったら、そのJANを現在の正とする
+    // URL上のJANを現在値に合わせる
     routeJanHandledRef.current = janStr;
     setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
     setProductDrawerOpen(true);
-    setIframeNonce((n) => n + 1);
 
-    // 座標が分かるようになったら1回だけ寄せる
-    if (routeJanCenteredRef.current === janStr) return;
-
+    // まだ点データが無い段階では待つ
     const hit =
-      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-      data.find((d) => String(getJanFromItem(d)) === janStr);
+      (Array.isArray(basePoints)
+        ? basePoints.find((d) => String(getJanFromItem(d)) === janStr)
+        : null) ||
+      (Array.isArray(data)
+        ? data.find((d) => String(getJanFromItem(d)) === janStr)
+        : null);
 
     if (!hit) return;
 
-    routeJanCenteredRef.current = janStr;
-    didInitialCenterRef.current = true;
-    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
+    // そのJANについてまだ未センタリングなら、データが揃ったタイミングで1回だけ中心へ
+    if (routeJanCenteredRef.current !== janStr) {
+      routeJanCenteredRef.current = janStr;
+      didInitialCenterRef.current = true;
+
+      requestAnimationFrame(() => {
+        focusOnWine(hit, { zoom: INITIAL_ZOOM });
+      });
+    }
   }, [routeJan, basePoints, data, focusOnWine]);  
   //---------------------------------------------------------------------------------
 
