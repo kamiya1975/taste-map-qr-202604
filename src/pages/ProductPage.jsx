@@ -895,15 +895,14 @@ export default function ProductPage() {
     const storeLabel = product?.price_store_name || "";
     availabilityLine = (
       <>
-        この商品は、近くの{storeLabel || "店舗"}でお買い求めいただけます。
-        在庫・価格は店舗でご確認ください。
+        この商品はお選びの{storeLabel || "店舗"}でお買い求めいただけます。
+        在庫・価格は店頭でご確認ください。
       </>
     );
   } else if (availableInSelected === false) {
     availabilityLine = (
       <>
-        現在、お選びの店舗ではお取り扱いがありません。<br />
-        過去の評価履歴として表示しています。
+        現在お選びの店舗ではお取り扱いがありません。
       </>
     );
   } else {
