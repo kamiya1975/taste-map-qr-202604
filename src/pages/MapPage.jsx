@@ -721,6 +721,8 @@ function MapPage() {
   const [userPin, setUserPin] = useState(null);
   const [highlight2D, setHighlight2D] = useState("");
   const [selectedJAN, setSelectedJAN] = useState(null);
+  //////2026.04.以下の1行を追加
+  const [highlightedJAN, setHighlightedJAN] = useState(null);
   const [productDrawerOpen, setProductDrawerOpen] = useState(false);
   const [iframeNonce, setIframeNonce] = useState(0);
   const [storeContextKey, setStoreContextKey] = useState(() => getStoreContextKeyFromStorage());
@@ -1869,8 +1871,92 @@ function MapPage() {
 //    ]
 //  );
 //  //---------------------------------------------------------------------------------
-
-  //////2026.04.上記1セクションを以下の1セクションと置き換え（アクセスログ含む）
+//////2026.04.以下の1セクションを置き換えのため削除
+//  //////2026.04.上記1セクションを以下の1セクションと置き換え（アクセスログ含む）
+//  //---------------------------------------------------------------------------------
+//  // 商品を開く共通関数
+//  // - /products/:jan 上では URL を更新して商品を切り替える
+//  // - /map 上では既存どおり state で Drawer を開く
+//  const openWine = useCallback(
+//    async (itemOrJan, opts = {}) => {
+//      const janStr =
+//        typeof itemOrJan === "string"
+//          ? String(itemOrJan)
+//          : String(getJanFromItem(itemOrJan));
+//
+//      if (!janStr) return;
+//
+//      const keepSearch = !!opts.preserveSearch;
+//      const keepRated = !!opts.preserveRated;
+//      const source = opts.source || null;
+//
+//      const item =
+//        typeof itemOrJan === "string"
+//          ? (
+//              basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+//              data.find((d) => String(getJanFromItem(d)) === janStr) ||
+//              null
+//            )
+//          : itemOrJan;
+//
+//      await closeUIsThen({
+//        preserveMyPage: true,
+//        preserveSearch: keepSearch,
+//        preserveRated: keepRated,
+//        preserveCluster: true,
+//      });
+//
+//      setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+//
+//      const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
+//
+//      // 商品オープンログは「開く意思決定」のここで送る
+//      if (source) {
+//        sendAccessLog({
+//          event_type: "product_open",
+//          jan_code: janStr,
+//          source,
+//          search: location.search,
+//        });
+//      }
+//
+//      if (isProductsRoute) {
+//        const nextSearch = buildSearchWithoutQrSrc(location.search);
+//
+//        navigate(
+//          {
+//            pathname: `/products/${encodeURIComponent(janStr)}`,
+//            search: nextSearch,
+//          },
+//          { replace: false }
+//        );
+//
+//        if (item) {
+//          focusOnWine(item, { zoom: opts.zoom });
+//        }
+//        return;
+//      }
+//
+//      setSelectedJAN(janStr);
+//      setIframeNonce(Date.now());
+//      setProductDrawerOpen(true);
+//
+//      if (item) {
+//        focusOnWine(item, { zoom: opts.zoom });
+//      }
+//    },
+//    [
+//      basePoints,
+//      data,
+//      closeUIsThen,
+//      location.pathname,
+//      location.search,
+//      navigate,
+//      focusOnWine,
+//    ]
+//  );
+//  //---------------------------------------------------------------------------------
+  //////2026.04.上記を以下の1セクションに置き換え（アクセスログ含む）
   //---------------------------------------------------------------------------------
   // 商品を開く共通関数
   // - /products/:jan 上では URL を更新して商品を切り替える
@@ -1917,6 +2003,9 @@ function MapPage() {
           search: location.search,
         });
       }
+
+      // 強調対象は「開いた商品」に合わせる
+      setHighlightedJAN(janStr);
 
       if (isProductsRoute) {
         const nextSearch = buildSearchWithoutQrSrc(location.search);
@@ -2016,8 +2105,44 @@ function MapPage() {
 //    didInitialCenterRef.current = true;
 //    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
 //  }, [routeJan, basePoints, data, focusOnWine]);  
-
-  //////2026.04.上記1セクションを 以下の1セクション34行と置き換え
+//////2026.04.以下の1セクションを置き換えのため削除
+//  //////2026.04.上記1セクションを 以下の1セクション34行と置き換え
+//  //---------------------------------------------------------------------------------
+//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
+//  useEffect(() => {
+//    if (!routeJan) return;
+//
+//    const janStr = String(routeJan).trim();
+//    if (!janStr) return;
+//
+//    // URL上のJANを現在値に合わせる
+//    routeJanHandledRef.current = janStr;
+//    setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
+//    setProductDrawerOpen(true);
+//
+//    // まだ点データが無い段階では待つ
+//    const hit =
+//      (Array.isArray(basePoints)
+//        ? basePoints.find((d) => String(getJanFromItem(d)) === janStr)
+//        : null) ||
+//      (Array.isArray(data)
+//        ? data.find((d) => String(getJanFromItem(d)) === janStr)
+//        : null);
+//
+//    if (!hit) return;
+//
+//    // そのJANについてまだ未センタリングなら、データが揃ったタイミングで1回だけ中心へ
+//    if (routeJanCenteredRef.current !== janStr) {
+//      routeJanCenteredRef.current = janStr;
+//      didInitialCenterRef.current = true;
+//
+//      requestAnimationFrame(() => {
+//        focusOnWine(hit, { zoom: INITIAL_ZOOM });
+//      });
+//    }
+//  }, [routeJan, basePoints, data, focusOnWine]);  
+//  //---------------------------------------------------------------------------------
+  //////2026.04.上記を以下の1セクションと置き換え
   //---------------------------------------------------------------------------------
   // /products/:jan で来た時は MapPage 上で商品Drawerを開く
   useEffect(() => {
@@ -2029,6 +2154,7 @@ function MapPage() {
     // URL上のJANを現在値に合わせる
     routeJanHandledRef.current = janStr;
     setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
+    setHighlightedJAN((prev) => (prev === janStr ? prev : janStr));
     setProductDrawerOpen(true);
 
     // まだ点データが無い段階では待つ
@@ -2051,8 +2177,7 @@ function MapPage() {
         focusOnWine(hit, { zoom: INITIAL_ZOOM });
       });
     }
-  }, [routeJan, basePoints, data, focusOnWine]);  
-  //---------------------------------------------------------------------------------
+  }, [routeJan, basePoints, data, focusOnWine]);
 
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
   const findNearestWineWorld = useCallback(
@@ -2381,7 +2506,6 @@ function MapPage() {
 //      try { pointsAbortRef.current?.abort?.(); } catch {}
 //    };
 //  }, []);
-
   //////2026.04.以下を上記1セクションと置き換え
   // unmount時は進行中の fetch を止める
   useEffect(() => {
@@ -2401,18 +2525,16 @@ function MapPage() {
         basePoints={basePoints}
         // 店舗集合（意味の集合）：信頼できる時だけ意味を持つ
         storeJansSet={storeJansSet}
-
         // 描画用の主集合    - 参照安定：毎回 new Set しない
         visibleJansSet={visibleJansSetForCanvas}
-
         // EC専用JAN（星・色替え用）
         ecOnlyJansSet={ecOnlyJansSet instanceof Set ? ecOnlyJansSet : new Set()}
-
         // 表示許可集合（フェード/非表示制御）    - 空Setは未確定扱いで null（制限なし）へ寄せる
         allowedJansSet={allowedJansSetForCanvas}
-
         userRatings={userRatings}
         selectedJAN={selectedJAN}
+        //////2026.04.以下の1行を追加
+        highlightedJAN={highlightedJAN}
         wishJansSet={wishJansSet}
         wishVersion={wishVersion}
         highlight2D={highlight2D}
