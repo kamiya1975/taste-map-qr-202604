@@ -306,6 +306,110 @@ const showAllowedJansErrorOnce = () => {
   }
 };
 
+//////2026.04.以下の1セクションを追加（アクセスログ）
+//---------------------------------------------------------------------------------
+// アクセスログ共通
+const ACCESS_LOG_SESSION_KEY = "tm_access_log_session_id";
+
+function getOrCreateAccessLogSessionId() {
+  try {
+    let sid = sessionStorage.getItem(ACCESS_LOG_SESSION_KEY);
+    if (sid) return sid;
+
+    sid =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sid_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    sessionStorage.setItem(ACCESS_LOG_SESSION_KEY, sid);
+    return sid;
+  } catch {
+    return null;
+  }
+}
+
+function readAccessLogContextFromSearch(search) {
+  try {
+    const params = new URLSearchParams(search || "");
+    const src = params.get("src") || null;
+
+    const rawStoreId = params.get("store_id");
+    const rawImporterId = params.get("importer_id");
+
+    const storeIdNum = rawStoreId != null ? Number(rawStoreId) : null;
+    const importerIdNum = rawImporterId != null ? Number(rawImporterId) : null;
+
+    return {
+      src,
+      store_id:
+        Number.isFinite(storeIdNum) && storeIdNum > 0 ? storeIdNum : null,
+      importer_id:
+        Number.isFinite(importerIdNum) && importerIdNum > 0
+          ? importerIdNum
+          : null,
+    };
+  } catch {
+    return { src: null, store_id: null, importer_id: null };
+  }
+}
+
+function buildSearchWithoutQrSrc(search) {
+  try {
+    const params = new URLSearchParams(search || "");
+    params.delete("src");
+    const s = params.toString();
+    return s ? `?${s}` : "";
+  } catch {
+    return "";
+  }
+}
+
+async function sendAccessLog({
+  event_type,
+  jan_code,
+  source = null,
+  search = "",
+}) {
+  try {
+    if (!event_type || !jan_code) return;
+
+    const ctx = readAccessLogContextFromSearch(search);
+    const payload = {
+      event_type,
+      jan_code: String(jan_code),
+      session_id: getOrCreateAccessLogSessionId(),
+      store_id: ctx.store_id,
+      importer_id: ctx.importer_id,
+      source: event_type === "product_open" ? source || null : null,
+    };
+
+    // ProductPage が保存している位置情報を流用
+    try {
+      const raw = localStorage.getItem("tm_last_location");
+      if (raw) {
+        const loc = JSON.parse(raw);
+        const lat = Number(loc?.latitude);
+        const lon = Number(loc?.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          payload.latitude = lat;
+          payload.longitude = lon;
+          if (loc?.located_at) payload.located_at = loc.located_at;
+        }
+      }
+    } catch {}
+
+    await fetch(`${API_BASE}/api/app/access-logs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch (e) {
+    console.warn("[access-log] send failed:", e);
+  }
+}
+//---------------------------------------------------------------------------------
+
 //---------------------------------------------------------------------------------
 // 共通のパース小ユーティリティ（先に定義しておく）
 function parseAllowedJansResponse(json) {
@@ -567,6 +671,8 @@ function MapPage() {
   const bootAbortRef = useRef(null);
   const routeJanHandledRef = useRef("");
   const routeJanCenteredRef = useRef("");
+  //////2026.04.以下1行を追加（アクセスログ）
+  const qrLandingLoggedRef = useRef(new Set());
 
   // ---- Drawer 状態（すべて明示）----
   const [isMyPageOpen, setIsMyPageOpen] = useState(false); // アプリガイド（メニュー）
@@ -666,6 +772,43 @@ function MapPage() {
     }
   }, [location.search]);  
 
+  //////2026.04.以下の1セクション35行を追加（アクセスログ）
+  //---------------------------------------------------------------------------------
+  // QR流入アクセスログ
+  // - /products/:jan?src=qr... の初回だけ qr_landing を送る
+  // - 送信後は src=qr だけ URL から落とし、store_id / importer_id は残す
+  useEffect(() => {
+    const janStr = String(routeJan || "").trim();
+    if (!janStr) return;
+
+    const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
+    if (!isProductsRoute) return;
+
+    const { src } = readAccessLogContextFromSearch(location.search);
+    if (src !== "qr") return;
+
+    const key = `${location.pathname}?${location.search}`;
+    if (qrLandingLoggedRef.current.has(key)) return;
+    qrLandingLoggedRef.current.add(key);
+
+    (async () => {
+      await sendAccessLog({
+        event_type: "qr_landing",
+        jan_code: janStr,
+        search: location.search,
+      });
+
+      const nextSearch = buildSearchWithoutQrSrc(location.search);
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearch,
+        },
+        { replace: true, state: location.state }
+      );
+    })();
+  }, [routeJan, location.pathname, location.search, location.state, navigate]);
+  
   //---------------------------------------------------------------------------------
   // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
   // - 「MapPage前に必ずStore選択」の旧仕様に戻す
@@ -1622,7 +1765,112 @@ function MapPage() {
     });
   }, []);
 
-  //////2026.04.以下の1セクション65行を追加
+//////2026.04.以下の1セクションを アクセスログを含めるため以下の1セクションと置き換え
+//  //////2026.04.以下の1セクション65行を追加
+//  //---------------------------------------------------------------------------------
+//  // 商品を開く共通関数
+//  // - /products/:jan 上では URL を更新して商品を切り替える
+//  // - /map 上では既存どおり state で Drawer を開く
+//  const openWine = useCallback(
+//    async (itemOrJan, opts = {}) => {
+//      const janStr =
+//        typeof itemOrJan === "string"
+//          ? String(itemOrJan)
+//          : String(getJanFromItem(itemOrJan));
+//
+//      if (!janStr) return;
+//
+//      const keepSearch = !!opts.preserveSearch;
+//      const keepRated = !!opts.preserveRated;
+//      const item =
+//        typeof itemOrJan === "string"
+//          ? (
+//              basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
+//              data.find((d) => String(getJanFromItem(d)) === janStr) ||
+//              null
+//            )
+//          : itemOrJan;
+//
+//      await closeUIsThen({
+//        preserveMyPage: true,
+//        preserveSearch: keepSearch,
+//        preserveRated: keepRated,
+//        preserveCluster: true,
+//      });
+//
+//      setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
+//
+//      const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
+//
+//      //////2026.04.以下1セクションを以下と置き換えのため削除
+////      if (isProductsRoute) {
+////        const params = new URLSearchParams(location.search);
+////        navigate(
+////          {
+////            pathname: `/products/${encodeURIComponent(janStr)}`,
+////            search: params.toString() ? `?${params.toString()}` : "",
+////          },
+////          { replace: false }
+////        );
+////        return;
+////      }
+//      //////2026.04.上記を以下の1セクション14行と置き換えのため削除
+////      if (isProductsRoute) {
+////        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
+////        routeJanCenteredRef.current = "";
+////
+////        const params = new URLSearchParams(location.search);
+////        navigate(
+////          {
+////            pathname: `/products/${encodeURIComponent(janStr)}`,
+////            search: params.toString() ? `?${params.toString()}` : "",
+////          },
+////          { replace: false }
+////        );
+////        return;
+////      }
+//      //////2026.04.上記を以下の1セクション16行と置き換え
+//      if (isProductsRoute) {
+//        const params = new URLSearchParams(location.search);
+//
+//        navigate(
+//          {
+//            pathname: `/products/${encodeURIComponent(janStr)}`,
+//            search: params.toString() ? `?${params.toString()}` : "",
+//          },
+//          { replace: false }
+//        );
+//        // ← ここが追加ポイント　中心移動のため
+//        if (item) {
+//          focusOnWine(item, { zoom: opts.zoom });
+//        }
+//        return;
+//      }
+//      setSelectedJAN(janStr);
+//      setIframeNonce(Date.now());
+//      setProductDrawerOpen(true);
+//      //////2026.04.以下を以下3行と置き換えのため削除
+////      if (item) {
+////        focusOnWine(item, { recenter: false, zoom: opts.zoom });
+////      }
+//      //////2026.04.上記を以下3行と置き換え
+//      if (item) {
+//        focusOnWine(item, { zoom: opts.zoom });
+//      }
+//    },
+//    [
+//      basePoints,
+//      data,
+//      closeUIsThen,
+//      location.pathname,
+//      location.search,
+//      navigate,
+//      focusOnWine,
+//    ]
+//  );
+//  //---------------------------------------------------------------------------------
+
+  //////2026.04.上記1セクションを以下の1セクションと置き換え（アクセスログ含む）
   //---------------------------------------------------------------------------------
   // 商品を開く共通関数
   // - /products/:jan 上では URL を更新して商品を切り替える
@@ -1638,6 +1886,8 @@ function MapPage() {
 
       const keepSearch = !!opts.preserveSearch;
       const keepRated = !!opts.preserveRated;
+      const source = opts.source || null;
+
       const item =
         typeof itemOrJan === "string"
           ? (
@@ -1658,58 +1908,37 @@ function MapPage() {
 
       const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
 
-      //////2026.04.以下1セクションを以下と置き換えのため削除
-//      if (isProductsRoute) {
-//        const params = new URLSearchParams(location.search);
-//        navigate(
-//          {
-//            pathname: `/products/${encodeURIComponent(janStr)}`,
-//            search: params.toString() ? `?${params.toString()}` : "",
-//          },
-//          { replace: false }
-//        );
-//        return;
-//      }
-      //////2026.04.上記を以下の1セクション14行と置き換えのため削除
-//      if (isProductsRoute) {
-//        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
-//        routeJanCenteredRef.current = "";
-//
-//        const params = new URLSearchParams(location.search);
-//        navigate(
-//          {
-//            pathname: `/products/${encodeURIComponent(janStr)}`,
-//            search: params.toString() ? `?${params.toString()}` : "",
-//          },
-//          { replace: false }
-//        );
-//        return;
-//      }
-      //////2026.04.上記を以下の1セクション16行と置き換え
+      // 商品オープンログは「開く意思決定」のここで送る
+      if (source) {
+        sendAccessLog({
+          event_type: "product_open",
+          jan_code: janStr,
+          source,
+          search: location.search,
+        });
+      }
+
       if (isProductsRoute) {
-        const params = new URLSearchParams(location.search);
+        const nextSearch = buildSearchWithoutQrSrc(location.search);
 
         navigate(
           {
             pathname: `/products/${encodeURIComponent(janStr)}`,
-            search: params.toString() ? `?${params.toString()}` : "",
+            search: nextSearch,
           },
           { replace: false }
         );
-        // ← ここが追加ポイント　中心移動のため
+
         if (item) {
           focusOnWine(item, { zoom: opts.zoom });
         }
         return;
       }
+
       setSelectedJAN(janStr);
       setIframeNonce(Date.now());
       setProductDrawerOpen(true);
-      //////2026.04.以下を以下3行と置き換えのため削除
-//      if (item) {
-//        focusOnWine(item, { recenter: false, zoom: opts.zoom });
-//      }
-      //////2026.04.上記を以下3行と置き換え
+
       if (item) {
         focusOnWine(item, { zoom: opts.zoom });
       }
@@ -2214,10 +2443,16 @@ function MapPage() {
 //          setProductDrawerOpen(true);
 //          focusOnWine(item, { recenter: false });
 //        }}
+//////2026.04.以下の4行を置き換えのため削除
+//        onPickWine={async (item) => {
+//          if (!item) return;
+//          await openWine(item);
+//        }}
+        //////2026.04.上記を以下の4行と置き換え（アクセスログ含む）
         onPickWine={async (item) => {
           if (!item) return;
-          await openWine(item);
-        }}
+          await openWine(item, { source: "map" });
+       }}
         clusterColorMode={clusterColorMode}
         edgeMarginXPx={50}
         edgeMarginYPx={400}
@@ -2535,9 +2770,19 @@ function MapPage() {
 //          }
 //          setProductDrawerOpen(true);
 //        }}
+//////2026.04.以下の4行を置き換えのため削除
+//        onPick={async (item) => {
+//          if (!item) return;
+//          await openWine(item, { preserveSearch: true, zoom: viewState.zoom });
+//        }}
+        //////2026.04.上記を以下の8行と置き換え（アクセスログ含む）
         onPick={async (item) => {
           if (!item) return;
-          await openWine(item, { preserveSearch: true, zoom: viewState.zoom });
+          await openWine(item, {
+            preserveSearch: true,
+            zoom: viewState.zoom,
+            source: "search",
+          });
         }}        
         onScanClick={async () => {
           await closeUIsThen({ preserveCluster: true });
@@ -2611,15 +2856,24 @@ function MapPage() {
 //            }
 //            return true;
 //          }
+//////2026.04.以下の8行を置き換えのため削除
+//          if (hit) {
+//            const janStr = getJanFromItem(hit);
+//            if (!janStr) return false;
+//
+//            lastCommittedRef.current = { code: jan, at: now };
+//            await openWine(hit, { zoom: INITIAL_ZOOM });
+//            return true;
+//          }
+          //////2026.04.上記を以下の8行と置き換え（アクセスログ含む）
           if (hit) {
             const janStr = getJanFromItem(hit);
             if (!janStr) return false;
-
-            lastCommittedRef.current = { code: jan, at: now };
-            await openWine(hit, { zoom: INITIAL_ZOOM });
-            return true;
-          }
           
+            lastCommittedRef.current = { code: jan, at: now };
+            await openWine(hit, { zoom: INITIAL_ZOOM, source: "scan" });
+            return true;
+          }          
           const lastWarn = unknownWarnedRef.current.get(jan) || 0;
           if (now - lastWarn > 12000) {
             alert(`JAN: ${jan} は見つかりませんでした。`);
@@ -2663,11 +2917,23 @@ function MapPage() {
 //          }
 //          setProductDrawerOpen(true);
 //        }}
+//////2026.04.以下の6行を置き換えのため削除
+//        onSelectJAN={async (jan) => {
+//          try {
+//            sessionStorage.setItem("tm_from_rated_jan", String(jan));
+//          } catch {}
+//          await openWine(String(jan), { preserveRated: true, zoom: INITIAL_ZOOM });
+//        }}
+        //////2026.04.上記を以下の10行と置き換え（アクセスログ含む）
         onSelectJAN={async (jan) => {
           try {
             sessionStorage.setItem("tm_from_rated_jan", String(jan));
           } catch {}
-          await openWine(String(jan), { preserveRated: true, zoom: INITIAL_ZOOM });
+          await openWine(String(jan), {
+            preserveRated: true,
+            zoom: INITIAL_ZOOM,
+            source: "rated",
+          });
         }}
       />
 
