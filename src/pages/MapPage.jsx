@@ -442,18 +442,33 @@ async function sendAccessLog({
       source: event_type === "product_open" ? source || null : null,
     };
 
+//    //////2026.04.以下を置き換えのため削除（位置情報）
+//    // MapPage で保持している位置情報キャッシュを流用
+//    try {
+//      const raw = localStorage.getItem("tm_last_location");
+//      if (raw) {
+//        const loc = JSON.parse(raw);
+//        const lat = Number(loc?.latitude);
+//        const lon = Number(loc?.longitude);
+//        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+//          payload.latitude = lat;
+//          payload.longitude = lon;
+//          //////2026.04.以下の1行を削除　（located_atは送らない（backendでnow））
+//          //if (loc?.located_at) payload.located_at = loc.located_at;
+//        }
+//      }
+//    } catch {}
+    //////2026.04.上記を以下の1セクションと置き換え（位置情報）
     // MapPage で保持している位置情報キャッシュを流用
     try {
       const raw = localStorage.getItem("tm_last_location");
       if (raw) {
-        const loc = JSON.parse(raw);
-        const lat = Number(loc?.latitude);
-        const lon = Number(loc?.longitude);
+        const parsed = JSON.parse(raw);
+        const lat = Number(parsed?.latitude);
+        const lon = Number(parsed?.longitude);
         if (Number.isFinite(lat) && Number.isFinite(lon)) {
           payload.latitude = lat;
           payload.longitude = lon;
-          //////2026.04.以下の1行を削除　（located_atは送らない（backendでnow））
-          //if (loc?.located_at) payload.located_at = loc.located_at;
         }
       }
     } catch {}
@@ -881,7 +896,7 @@ function MapPage() {
 
       // 初回 or TTL切れなら更新
       if (!cached || shouldRefreshLocation(cached)) {
-        const loc = await fetchLocationSilently();
+        await fetchLocationSilently();
         if (!mounted) return;
         // 取得できなくても何もしない（UX優先）
       }
