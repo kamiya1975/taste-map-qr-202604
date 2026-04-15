@@ -306,6 +306,65 @@ const showAllowedJansErrorOnce = () => {
   }
 };
 
+//////2026.04.以下の4行を追加（位置情報）
+//---------------------------------------------------------------------------------
+// 位置キャッシュ
+const TM_LAST_LOCATION_KEY = "tm_last_location";
+const LOCATION_TTL_MS = 30 * 60 * 1000; // 30分
+
+//////2026.04.以下の1セクションを追加（位置情報）
+//---------------------------------------------------------------------------------
+// 位置取得（silent優先）
+function getCachedLocation() {
+  try {
+    const raw = localStorage.getItem(TM_LAST_LOCATION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveLocation(loc) {
+  try {
+    localStorage.setItem(TM_LAST_LOCATION_KEY, JSON.stringify(loc));
+  } catch {}
+}
+
+function shouldRefreshLocation(loc) {
+  if (!loc?.located_at) return true;
+  const last = new Date(loc.located_at).getTime();
+  return Date.now() - last > LOCATION_TTL_MS;
+}
+
+function fetchLocationSilently() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          located_at: new Date().toISOString(),
+        };
+        saveLocation(loc);
+        resolve(loc);
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: false,
+        maximumAge: LOCATION_TTL_MS,
+        timeout: 3000,
+      }
+    );
+  });
+}
+
 //////2026.04.以下の1セクションを追加（アクセスログ）
 //---------------------------------------------------------------------------------
 // アクセスログ共通
@@ -383,7 +442,7 @@ async function sendAccessLog({
       source: event_type === "product_open" ? source || null : null,
     };
 
-    // ProductPage が保存している位置情報を流用
+    // MapPage で保持している位置情報キャッシュを流用
     try {
       const raw = localStorage.getItem("tm_last_location");
       if (raw) {
@@ -393,7 +452,8 @@ async function sendAccessLog({
         if (Number.isFinite(lat) && Number.isFinite(lon)) {
           payload.latitude = lat;
           payload.longitude = lon;
-          if (loc?.located_at) payload.located_at = loc.located_at;
+          //////2026.04.以下の1行を削除　（located_atは送らない（backendでnow））
+          //if (loc?.located_at) payload.located_at = loc.located_at;
         }
       }
     } catch {}
@@ -408,7 +468,6 @@ async function sendAccessLog({
     console.warn("[access-log] send failed:", e);
   }
 }
-//---------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------
 // 共通のパース小ユーティリティ（先に定義しておく）
@@ -811,6 +870,28 @@ function MapPage() {
     })();
   }, [routeJan, location.pathname, location.search, location.state, navigate]);
   
+  //////2026.04.以下の1セクションを追加（位置情報）
+  //---------------------------------------------------------------------------------
+  // 位置情報の初期取得＆更新（silent）
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const cached = getCachedLocation();
+
+      // 初回 or TTL切れなら更新
+      if (!cached || shouldRefreshLocation(cached)) {
+        const loc = await fetchLocationSilently();
+        if (!mounted) return;
+        // 取得できなくても何もしない（UX優先）
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   //---------------------------------------------------------------------------------
   // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
   // - 「MapPage前に必ずStore選択」の旧仕様に戻す

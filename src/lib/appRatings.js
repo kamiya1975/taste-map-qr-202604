@@ -13,20 +13,35 @@ function getAppToken() {
   }
 }
 
-// 位置情報を localStorage から拾う場合はここでまとめて取得
-// いまはダミー（あとで ProductPage 側の仕様に合わせて書き換えでOK）
+//////2026.04.以下の1セクションを置き換えのため削除
+//// 位置情報を localStorage から拾う場合はここでまとめて取得
+//// いまはダミー（あとで ProductPage 側の仕様に合わせて書き換えでOK）
+//function getLatLonFromStorage() {
+//  try {
+//    const raw = localStorage.getItem("tm_last_location");
+//    if (!raw) return { latitude: null, longitude: null, located_at: null };
+//    const obj = JSON.parse(raw);
+//    return {
+//      latitude: obj.latitude ?? null,
+//      longitude: obj.longitude ?? null,
+//      located_at: obj.located_at ?? null,
+//    };
+//  } catch {
+///    return { latitude: null, longitude: null, located_at: null };
+//  }
+//}
+//////2026.04.上記を以下の1セクションと置き換え（位置情報）
 function getLatLonFromStorage() {
   try {
     const raw = localStorage.getItem("tm_last_location");
-    if (!raw) return { latitude: null, longitude: null, located_at: null };
+    if (!raw) return { latitude: null, longitude: null };
     const obj = JSON.parse(raw);
     return {
       latitude: obj.latitude ?? null,
       longitude: obj.longitude ?? null,
-      located_at: obj.located_at ?? null,
     };
   } catch {
-    return { latitude: null, longitude: null, located_at: null };
+    return { latitude: null, longitude: null };
   }
 }
 
@@ -42,7 +57,10 @@ export async function postRating({ jan_code, rating }) {
     throw new Error("アプリ用トークンがありません（未ログイン）");
   }
 
-  const { latitude, longitude, located_at } = getLatLonFromStorage();
+  //////2026.04.以下の1行を　以下の2行と置き換え（位置情報）
+  //const { latitude, longitude, located_at } = getLatLonFromStorage();
+  const { latitude, longitude } = getLatLonFromStorage();
+  const located_at = new Date().toISOString();
 
   const res = await fetch(`${API_BASE}/api/app/ratings`, {
     method: "POST",

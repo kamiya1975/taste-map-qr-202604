@@ -21,42 +21,43 @@ const PUBLIC_BASE = process.env.PUBLIC_URL || "";
 
 const STORE_CTX_BC = "store_ctx_bus";
 
-/** =========================
- *  位置情報（tm_last_location）TTL制御
- *  - 位置情報許可ダイアログはOSが環境により出してしまう = 位置測位とtm_last_locationへの保存は必要
- *  - OS/ブラウザの位置許可ダイアログ頻度を下げる = TTL制御で3日（ダイアログが出る人は3日ごとの初回だけ出る）
- *  - 評価APIは tm_last_location があれば送る／無ければ null のまま送る（既存通り）
- * ========================= */
-const TM_LAST_LOCATION_KEY = "tm_last_location";
-// TTL: 72h（3日）
-const TM_LAST_LOCATION_TTL_MS = 72 * 60 * 60 * 1000;
-
-function shouldRefreshTmLastLocation(ttlMs = TM_LAST_LOCATION_TTL_MS) {
-  try {
-    const raw = localStorage.getItem(TM_LAST_LOCATION_KEY);
-    if (!raw) return true; // 無いなら取得する
-    const obj = JSON.parse(raw);
-    const at = obj?.located_at;
-    if (!at || typeof at !== "string") return true; // located_at 不正
-    const t = Date.parse(at);
-    if (!Number.isFinite(t)) return true; // パース不能
-    return Date.now() - t > ttlMs; // TTL超えなら更新
-  } catch {
-    return true;
-  }
-}
-
-function saveTmLastLocation(latitude, longitude) {
-  const located_at = new Date().toISOString();
-  try {
-    localStorage.setItem(
-      TM_LAST_LOCATION_KEY,
-      JSON.stringify({ latitude, longitude, located_at })
-    );
-  } catch (e) {
-    console.warn("tm_last_location の保存に失敗:", e);
-  }
-}
+//////2026.04.以下の1セクションを削除（位置情報）
+///** =========================
+// *  位置情報（tm_last_location）TTL制御
+// *  - 位置情報許可ダイアログはOSが環境により出してしまう = 位置測位とtm_last_locationへの保存は必要
+// *  - OS/ブラウザの位置許可ダイアログ頻度を下げる = TTL制御で3日（ダイアログが出る人は3日ごとの初回だけ出る）
+// *  - 評価APIは tm_last_location があれば送る／無ければ null のまま送る（既存通り）
+// * ========================= */
+//const TM_LAST_LOCATION_KEY = "tm_last_location";
+//// TTL: 72h（3日）
+//const TM_LAST_LOCATION_TTL_MS = 72 * 60 * 60 * 1000;
+//
+//function shouldRefreshTmLastLocation(ttlMs = TM_LAST_LOCATION_TTL_MS) {
+//  try {
+//    const raw = localStorage.getItem(TM_LAST_LOCATION_KEY);
+//    if (!raw) return true; // 無いなら取得する
+//    const obj = JSON.parse(raw);
+//    const at = obj?.located_at;
+//    if (!at || typeof at !== "string") return true; // located_at 不正
+//    const t = Date.parse(at);
+//    if (!Number.isFinite(t)) return true; // パース不能
+//    return Date.now() - t > ttlMs; // TTL超えなら更新
+//  } catch {
+//    return true;
+//  }
+//}
+//
+//function saveTmLastLocation(latitude, longitude) {
+//  const located_at = new Date().toISOString();
+//  try {
+//    localStorage.setItem(
+//      TM_LAST_LOCATION_KEY,
+//      JSON.stringify({ latitude, longitude, located_at })
+//    );
+//  } catch (e) {
+//    console.warn("tm_last_location の保存に失敗:", e);
+//  }
+//}
 
 /** =========================
  *  ユーティリティ
@@ -525,46 +526,46 @@ export default function ProductPage() {
   const [toast, setToast] = useState(false);
   const { add } = useSimpleCart();
 
-  // 評価ページ表示時に一度だけ現在位置を取得して tm_last_location に保存
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return;
-    }
-
-    // TTL以内なら取得しない（＝OS/ブラウザの位置許可ダイアログ頻度を抑える）
-    if (!shouldRefreshTmLastLocation()) {
-      return;
-    }
-
-    let cancelled = false;
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (cancelled) return;
-        const { latitude, longitude } = pos.coords || {};
-        // 念のため数値チェック（不正値なら保存しない）
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-          return;
-        }
-        saveTmLastLocation(latitude, longitude);
-      },
-      (err) => {
-        if (err?.code === 1) return; // deny は黙る
-        console.warn("geolocation 取得失敗:", err);
-      },
-      {
-        enableHighAccuracy: false,
-        maximumAge: 5 * 60 * 1000, // 5分以内のキャッシュを許可
-        timeout: 10000,
-      }
-    );
-
-    return () => {
-      cancelled = true;
-    };
-    // jan_code 変更ごとに呼ばない（TTLガードが本体だが、依存も外して無駄呼びをさらに抑える）
-  }, []);
-
+//  //////2026.04.以下の1セクションを削除（位置情報）
+//  // 評価ページ表示時に一度だけ現在位置を取得して tm_last_location に保存
+//  useEffect(() => {
+//    if (typeof navigator === "undefined" || !navigator.geolocation) {
+//      return;
+//    }
+//
+//    // TTL以内なら取得しない（＝OS/ブラウザの位置許可ダイアログ頻度を抑える）
+//    if (!shouldRefreshTmLastLocation()) {
+//      return;
+//    }
+//
+//    let cancelled = false;
+//
+//    navigator.geolocation.getCurrentPosition(
+//      (pos) => {
+//        if (cancelled) return;
+//        const { latitude, longitude } = pos.coords || {};
+//        // 念のため数値チェック（不正値なら保存しない）
+//        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+//          return;
+//        }
+//        saveTmLastLocation(latitude, longitude);
+//      },
+//      (err) => {
+//        if (err?.code === 1) return; // deny は黙る
+//        console.warn("geolocation 取得失敗:", err);
+//      },
+//      {
+//        enableHighAccuracy: false,
+//        maximumAge: 5 * 60 * 1000, // 5分以内のキャッシュを許可
+//        timeout: 10000,
+//      }
+//    );
+//
+//    return () => {
+//      cancelled = true;
+//    };
+//    // jan_code 変更ごとに呼ばない（TTLガードが本体だが、依存も外して無駄呼びをさらに抑える）
+//  }, []);
 
   // 画面オープン/クローズ通知
   useEffect(() => {
