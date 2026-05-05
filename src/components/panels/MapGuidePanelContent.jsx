@@ -33,9 +33,10 @@ const IconDot = ({ color = "#9aa0a6", size = 12 }) => (
   </svg>
 );
 // EC商品（オレンジドット）
-const IconDotOrange = ({ size = 12, color = "#F7931E" }) => (
-  <IconDot size={size} color={color} />
-);
+//2026.05.
+//const IconDotOrange = ({ size = 12, color = "#F7931E" }) => (
+//  <IconDot size={size} color={color} />
+//);
 // 配置範囲（四角斜線）
 const IconArea = ({ size = 12 }) => (
   <div
