@@ -76,7 +76,29 @@ export default function ClusterPalettePanel({
       heightDurationMs={225}
       zIndex={4000}
       hideClose={true}
+      // 2026.05.以下を追加
+      rightExtra={
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setCollapsed((v) => !v);
+          }}
+          aria-label={collapsed ? "展開" : "折りたたみ"}
+          title={collapsed ? "展開" : "折りたたみ"}
+          style={{
+            border: "none",
+            background: "transparent",
+            fontSize: 18,
+            lineHeight: 1,
+            cursor: "pointer",
+            padding: "4px 6px",
+          }}
+        >
+          {collapsed ? "▲" : "▼"}
+        </button>
+      }
     >
+
       {!collapsed ? (
         <div style={{ padding: 12 }}>
           <p style={{ margin: "4px 0 12px", color: "#444", fontSize: 13 }}>

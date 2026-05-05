@@ -2369,9 +2369,36 @@ function MapPage() {
           />
         </button>
       </div>
-      {/* 左下の旧カートFABは削除 */}
+      {/* 左下の旧カートFABは削除 */}{/* 2026.05.以下追加 */}
+      {/* 左下: アプリガイド */}
+      <button
+        onClick={() => openPanel("mypage")}
+        style={{
+          position: "absolute",
+          left: "10px",
+          bottom: "18px",
+          zIndex: UI_Z_TOP,
+          width: "42px",
+          height: "42px",
+          background: "rgba(255,255,255,0.9)",
+          border: "1px solid rgba(0,0,0,0.25)",
+          borderRadius: "50%",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+          pointerEvents: "auto",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+        }}
+        aria-label="アプリガイド"
+        title="アプリガイド"
+      >
+        <span style={{ fontSize: 24, lineHeight: 1 }}>⚙️</span>
+      </button>
 
       {/* 右上: アプリガイド */}
+      {/* 2026.05.以下と置き換え
       <button
         onClick={() => openPanel("mypage")}
         style={{
@@ -2392,6 +2419,42 @@ function MapPage() {
         }}
         aria-label="アプリガイド"
         title="アプリガイド"
+      >
+        <img
+          src={`${process.env.PUBLIC_URL || ""}/img/app-guide.svg`}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+            pointerEvents: "none",
+          }}
+          draggable={false}
+        />
+      </button>
+      */}
+      {/* 右上: 基準のワイン/スライダー */}
+      <button
+        onClick={() => navigate("/slider", { replace: false, state: { from: "map" } })}
+        style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          zIndex: UI_Z_TOP,
+          width: "40px",
+          height: "40px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+          pointerEvents: "auto",
+        }}
+        aria-label="基準のワイン"
+        title="基準のワイン"
       >
         <img
           src={`${process.env.PUBLIC_URL || ""}/img/app-guide.svg`}
@@ -2822,7 +2885,7 @@ function MapPage() {
           onOpenMapGuide={() => openOverlayAboveMenu("mapguide")}
           onOpenStore={() => openOverlayAboveMenu("store")}
           onOpenAccount={() => openOverlayAboveMenu("account")}
-          onOpenMiles={() => openOverlayAboveMenu("miles")}
+        //2026.05.  onOpenMiles={() => openOverlayAboveMenu("miles")}
           onOpenFaq={() => openOverlayAboveMenu("faq")}
           onOpenRefresh={() => openOverlayAboveMenu("refresh")}
           onOpenSlider={() => {

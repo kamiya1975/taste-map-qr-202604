@@ -124,12 +124,12 @@ export default function MapGuidePanelContent() {
           店舗で買えるワイン
         </Row>
         <div style={{ height: 1, background: "#e6ded2" }} />
-
+        {/* 2026.05.
         <Row icon={<IconDotOrange size={12} />}>
           ECで買えるワイン
         </Row>
         <div style={{ height: 1, background: "#e6ded2" }} />
-
+        */}
         <Row icon={<IconArea />}>
           打点範囲の目安
         </Row>
@@ -154,6 +154,25 @@ export default function MapGuidePanelContent() {
           要素の強さをバブルで表現<br></br>バブルが大きいほどその特徴が強いです
         </Row>
       </div>
+
+      <div style={{ marginTop: 24 }}>
+        <h3 style={{ fontSize: 15, margin: "0 0 12px", color: "#111" }}>
+          よくある質問
+        </h3>
+        {[
+          ["位置情報を許可しないと使えない？", "許可しなくても利用できます。位置情報は評価記録などの目的で、同意がある場合に限り取得されます。"],
+          ["検索パネルの商品は何の一覧？", "マップに打点されている商品の一覧です。QRの店舗または輸入元に紐づく商品が表示されます。"],
+          ["評価の取り消しってできる？", "はい、できます。商品ページで濃くなっている評価部分をタップすると評価が消えます。"],
+          ["商品ページの「飲みたい」を押すとどうなるの？", "評価・飲みたい一覧パネルに追加され、あとから探しやすくなります。評価すると飲みたいフラグが外れて評価アイコンへ変わります。"],
+          ["打点が小さくて押せないときは？", "スマホ画面をピンチアウトするとマップを拡大できます。また検索パネルの商品一覧からも詳細を開けます。"],
+        ].map(([q, a]) => (
+          <div key={q} style={{ borderTop: "1px solid rgba(0,0,0,.08)", padding: "14px 4px" }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Q. {q}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.75, color: "#222" }}>A. {a}</div>
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }

@@ -7,7 +7,7 @@ const ICONS = {
   mapGuide: "/img/tizu.svg",
   account: "/img/account.svg",
   store:   "/img/store.svg",
-  miles:   "/img/icon-cart2.png",
+//2026.05.  miles:   "/img/icon-cart2.png",
   faq:     "/img/faq.svg",
   refresh: "/img/refresh.svg"
 };
@@ -59,7 +59,7 @@ export default function MyPagePanelContent({
   onOpenMapGuide,
   onOpenStore,
   onOpenAccount,
-  onOpenMiles,
+//2026.05.  onOpenMiles,
   onOpenFaq,
   onOpenRefresh,
 }) {
@@ -67,7 +67,7 @@ export default function MyPagePanelContent({
     <div style={{ flex: 1, overflowY: "auto", background: "#fff" }}>
       <Row
         icon={ICONS.mapGuide}
-        label="マップガイド"
+        label="マップガイド + よくある質問"
         onClick={() => onOpenMapGuide?.()} 
       />
       <Row
@@ -80,12 +80,14 @@ export default function MyPagePanelContent({
         label="お気に入り店舗登録"
         onClick={() => onOpenStore?.()}
       />
+      {/* 2026.05.
       <Row
         icon={ICONS.miles}
         label="獲得マイル"
         onClick={() => onOpenMiles?.()}
         iconSize={40}
       />
+      */}
       <Row
         icon={ICONS.faq}
         label="よくある質問"
