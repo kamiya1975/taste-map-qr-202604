@@ -91,7 +91,7 @@ export default function ClusterPalettePanel({
             fontSize: 16,
             lineHeight: 1,
             cursor: "pointer",
-            padding: "4px 6px",
+            padding: "4px 10px",
             color: "#666",
             WebkitTextFillColor: "#666", // 追加：iPhone対策
           }}
