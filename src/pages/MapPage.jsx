@@ -2274,7 +2274,7 @@ function MapPage() {
         basePoint={basePoint}
       />
     
-      {/* 左上: 指標セレクタ + クラスタ配色ボタン */}
+      {/* 左上ボタン群: 指標セレクタ + クラスタ配色 */}
       <div
         style={{
           position: "absolute",
@@ -2287,7 +2287,7 @@ function MapPage() {
           pointerEvents: "auto",
         }}
       >
-        {/* セレクタ */}
+        {/* 指標セレクタ選択ボタン */}
         <div style={{ position: "relative", display: "inline-block" }}>
           <select
             value={highlight2D}
@@ -2326,7 +2326,7 @@ function MapPage() {
           </span>
         </div>
 
-        {/* クラスタ配色ボタン（右横配置） */}
+        {/* クラスタ配色ボタン */}
         <button
           onClick={async () => {
             const next = !clusterColorMode;
@@ -2369,8 +2369,9 @@ function MapPage() {
           />
         </button>
       </div>
-      {/* 左下の旧カートFABは削除 */}{/* 2026.05.以下追加 */}
-      {/* 左下: アプリガイド */}
+
+      {/* 2026.05.以下追加 */}
+      {/* 左下（ギアボタン）: アプリガイド */}
       <button
         onClick={() => openPanel("mypage")}
         style={{
@@ -2434,7 +2435,7 @@ function MapPage() {
         />
       </button>
       */}
-      {/* 右上: 基準のワイン/スライダー */}
+      {/* 右上ボタン群: 基準のワイン/スライダーボタン */}
       <button
         onClick={() => navigate("/slider", { replace: false, state: { from: "map" } })}
         style={{
@@ -2470,7 +2471,7 @@ function MapPage() {
         />
       </button>
 
-      {/* 右上: 検索 */}
+      {/* 右上ボタン群: 検索パネルボタン */}
       <button
         onClick={async () => {
           // 先に開く（体感速度優先）
@@ -2509,7 +2510,7 @@ function MapPage() {
         />
       </button>
 
-      {/* 右サイド: 評価 */}
+      {/* 右上ボタン群: 評価パネルボタン */}
       <button
         onClick={async () => {
           // 先に開く（体感速度優先）
@@ -2549,7 +2550,7 @@ function MapPage() {
         />
       </button>
 
-      {/* 右サイド: カート */}
+      {/* 右上ボタン群: カートパネルボタン */}
       {cartEnabled && (
       <button
         onClick={() => openPanel("cart")}
@@ -2692,7 +2693,7 @@ function MapPage() {
         }}
       />
 
-      {/* 評価・飲みたいパネル（◎） */}
+      {/* ====== 評価・飲みたいパネル ====== */}
       <RatedPanel
         isOpen={isRatedOpen}
         onClose={async () => {
@@ -2723,7 +2724,7 @@ function MapPage() {
         collapseKey={clusterCollapseKey}
       />
 
-      {/* 商品詳細ページドロワー */}
+      {/* ====== 商品詳細ページドロワー ====== */}
       <Drawer
         anchor="bottom"
         open={productDrawerOpen}
@@ -2793,7 +2794,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* カートパネル（SimpleCartPanel） */}
+      {/* ====== カートパネル（SimpleCartPanel）====== */}
       <Drawer
         id="cart-drawer"
         anchor="bottom"
@@ -2846,7 +2847,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* アプリガイド（メニュー） */}
+      {/* ====== アプリガイド（メニュー）====== */}
       <Drawer
         anchor="bottom"
         open={isMyPageOpen}
@@ -2895,7 +2896,7 @@ function MapPage() {
         />
       </Drawer>
 
-      {/* あなたの味覚位置 */}
+      {/* ====== あなたの味覚位置パネル ====== */}
       <Drawer
         anchor="bottom"
         open={isTastePositionOpen}
@@ -2924,7 +2925,7 @@ function MapPage() {
       >
         <PanelHeader
           title="あなたの味覚位置"
-          icon="dot.svg"
+          icon="app-guide.svg"
           onClose={() => setIsTastePositionOpen(false)}
         />
         <div className="drawer-scroll" style={{ flex: 1, overflowY: "auto" }}>
@@ -2935,7 +2936,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* マップガイド */}
+      {/* ====== マップガイドパネル ====== */}
       <Drawer
         anchor="bottom"
         open={isMapGuideOpen}
@@ -2975,7 +2976,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* マイアカウント */}
+      {/* ====== マイアカウントパネル ====== */}
       <Drawer
         anchor="bottom"
         open={isAccountOpen}
@@ -3017,7 +3018,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* お気に入り店舗登録 */}
+      {/* ====== お気に入り店舗登録パネル ====== */}
       <Drawer
         anchor="bottom"
         open={isStoreOpen}
@@ -3057,7 +3058,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* 獲得マイル */}
+      {/* ====== 獲得マイルパネル ====== */}
       <Drawer
         anchor="bottom"
         open={isMilesOpen}
@@ -3095,7 +3096,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* よくある質問 */}
+      {/* ====== よくある質問パネル ====== */}
       <Drawer
         anchor="bottom"
         open={isFaqOpen}
@@ -3135,7 +3136,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* 更新ボタン */}
+      {/* ====== 更新ボタンパネル ====== */}
       <Drawer
         anchor="bottom"
         open={isRefreshOpen}
@@ -3173,7 +3174,7 @@ function MapPage() {
         </div>
       </Drawer>
 
-      {/* 下部中央: 「○○さんの地図」ラベル */}
+      {/* ====== 下部中央: 「○○さんの地図」ラベル ====== */}
       {(() => {
         try {
           const token = localStorage.getItem("app.access_token");
