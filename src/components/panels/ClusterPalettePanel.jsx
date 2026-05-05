@@ -88,10 +88,12 @@ export default function ClusterPalettePanel({
           style={{
             border: "none",
             background: "transparent",
-            fontSize: 18,
+            fontSize: 16,
             lineHeight: 1,
             cursor: "pointer",
             padding: "4px 6px",
+            color: "#666",
+            WebkitTextFillColor: "#666", // 追加：iPhone対策
           }}
         >
           {collapsed ? "▲" : "▼"}

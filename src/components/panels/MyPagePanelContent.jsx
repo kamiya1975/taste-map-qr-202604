@@ -8,7 +8,7 @@ const ICONS = {
   account: "/img/account.svg",
   store:   "/img/store.svg",
 //2026.05.  miles:   "/img/icon-cart2.png",
-  faq:     "/img/faq.svg",
+//2026.05.  faq:     "/img/faq.svg",
   refresh: "/img/refresh.svg"
 };
 
@@ -60,7 +60,7 @@ export default function MyPagePanelContent({
   onOpenStore,
   onOpenAccount,
 //2026.05.  onOpenMiles,
-  onOpenFaq,
+//2026.05.  onOpenFaq,
   onOpenRefresh,
 }) {
   return (
@@ -88,11 +88,13 @@ export default function MyPagePanelContent({
         iconSize={40}
       />
       */}
+      {/* 2026.05.
       <Row
         icon={ICONS.faq}
         label="よくある質問"
         onClick={() => onOpenFaq?.()} 
       />
+      */}
       <Row
         icon={ICONS.refresh}
         label="更新ボタンについて"
