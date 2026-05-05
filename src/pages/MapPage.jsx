@@ -442,23 +442,6 @@ async function sendAccessLog({
       source: event_type === "product_open" ? source || null : null,
     };
 
-//    //////2026.04.以下を置き換えのため削除（位置情報）
-//    // MapPage で保持している位置情報キャッシュを流用
-//    try {
-//      const raw = localStorage.getItem("tm_last_location");
-//      if (raw) {
-//        const loc = JSON.parse(raw);
-//        const lat = Number(loc?.latitude);
-//        const lon = Number(loc?.longitude);
-//        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-//          payload.latitude = lat;
-//          payload.longitude = lon;
-//          //////2026.04.以下の1行を削除　（located_atは送らない（backendでnow））
-//          //if (loc?.located_at) payload.located_at = loc.located_at;
-//        }
-//      }
-//    } catch {}
-    //////2026.04.上記を以下の1セクションと置き換え（位置情報）
     // MapPage で保持している位置情報キャッシュを流用
     try {
       const raw = localStorage.getItem("tm_last_location");
@@ -947,16 +930,6 @@ function MapPage() {
     return null;        // null = 全点フォールバック扱い
   }, [allowedJansSet]);
 
-  //////2026.04.以下の1セクションを以下と置き換えのため削除
-//  // --- 全点フォールバック用 ---
-//  // 毎renderで new Set しない - data が変わった時だけ再計算
-//  const allJansSet = useMemo(() => {
-//    const list = Array.isArray(data) ? data : [];
-//    return new Set(
-//      list.map((d) => String(getJanFromItem(d))).filter(Boolean)
-//    );
-//  }, [data]);
-
   //////2026.04.以下の1セクション8行と上記を置き換え
   // --- 全点フォールバック用 ---
   // base層（points ∩ active_jans）を “表示してよい全打点” とする
@@ -979,20 +952,6 @@ function MapPage() {
     return allowedJansSet.size > 0 ? allowedJansSet : null;
   }, [allowedJansSet]);
   
-  //////2026.04.以下の1セクションを以下と置き換えのため削除
-//  //---------------------------------------------------------------------------------
-//  // 商品iframe URL（店舗コンテキスト＆キャッシュバスト込み）
-//  // - ctx: 店舗コンテキスト（main/sub/token） - _  : iframeNonce（強制再読み込み用）
-//  const productIframeSrc = useMemo(() => {
-//    if (!selectedJAN) return "";
-//    const base = process.env.PUBLIC_URL || "";
-//    const jan = encodeURIComponent(String(selectedJAN));
-//    const ctx = encodeURIComponent(String(storeContextKey || ""));
-//    const nonce = encodeURIComponent(String(iframeNonce || 0));
-//    // HashRouter 前提： /#/products/:jan
-//    return `${base}/#/products/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
-//  }, [selectedJAN, storeContextKey, iframeNonce]); 
-
   //////2026.04.以下の1セクション13行を上記と置き換え
   //---------------------------------------------------------------------------------
   // 商品iframe URL（店舗コンテキスト＆キャッシュバスト込み）
@@ -1083,18 +1042,6 @@ function MapPage() {
       console.error("[MapPage] boot fetch error", e);
     }
   }, []);
-
-  //////2026.04.以下の1セクションを以下と置き換えのため削除
-//  //---------------------------------------------------------------------------------
-//  // 検索パネルに渡すデータ（初期一覧表示 = 打点）
-//  // - visibleJansSetがある → その集合に含まれる点だけ / visibleJansSetがnull → フォールバックで全点
-//  const searchPanelData = useMemo(() => {
-//    const list = Array.isArray(data) ? data : [];
-//    //visibleJansSet が null のときは全点を検索対象（PlanAの暫定フォールバック）
-//    const set = visibleJansSet instanceof Set ? visibleJansSet : null;
-//    if (!set) return list;
-//    return list.filter((d) => set.has(String(getJanFromItem(d))));
-//  }, [data, visibleJansSet]);
 
   //////20206.04.以下の1セクション7行を上記と置き換え
   //---------------------------------------------------------------------------------
@@ -1863,195 +1810,6 @@ function MapPage() {
     });
   }, []);
 
-//////2026.04.以下の1セクションを アクセスログを含めるため以下の1セクションと置き換え
-//  //////2026.04.以下の1セクション65行を追加
-//  //---------------------------------------------------------------------------------
-//  // 商品を開く共通関数
-//  // - /products/:jan 上では URL を更新して商品を切り替える
-//  // - /map 上では既存どおり state で Drawer を開く
-//  const openWine = useCallback(
-//    async (itemOrJan, opts = {}) => {
-//      const janStr =
-//        typeof itemOrJan === "string"
-//          ? String(itemOrJan)
-//          : String(getJanFromItem(itemOrJan));
-//
-//      if (!janStr) return;
-//
-//      const keepSearch = !!opts.preserveSearch;
-//      const keepRated = !!opts.preserveRated;
-//      const item =
-//        typeof itemOrJan === "string"
-//          ? (
-//              basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-//              data.find((d) => String(getJanFromItem(d)) === janStr) ||
-//              null
-//            )
-//          : itemOrJan;
-//
-//      await closeUIsThen({
-//        preserveMyPage: true,
-//        preserveSearch: keepSearch,
-//        preserveRated: keepRated,
-//        preserveCluster: true,
-//      });
-//
-//      setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-//
-//      const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
-//
-//      //////2026.04.以下1セクションを以下と置き換えのため削除
-////      if (isProductsRoute) {
-////        const params = new URLSearchParams(location.search);
-////        navigate(
-////          {
-////            pathname: `/products/${encodeURIComponent(janStr)}`,
-////            search: params.toString() ? `?${params.toString()}` : "",
-////          },
-////          { replace: false }
-////        );
-////        return;
-////      }
-//      //////2026.04.上記を以下の1セクション14行と置き換えのため削除
-////      if (isProductsRoute) {
-////        // URL変更後に routeJan effect 側で再センタリングできるようにリセット
-////        routeJanCenteredRef.current = "";
-////
-////        const params = new URLSearchParams(location.search);
-////        navigate(
-////          {
-////            pathname: `/products/${encodeURIComponent(janStr)}`,
-////            search: params.toString() ? `?${params.toString()}` : "",
-////          },
-////          { replace: false }
-////        );
-////        return;
-////      }
-//      //////2026.04.上記を以下の1セクション16行と置き換え
-//      if (isProductsRoute) {
-//        const params = new URLSearchParams(location.search);
-//
-//        navigate(
-//          {
-//            pathname: `/products/${encodeURIComponent(janStr)}`,
-//            search: params.toString() ? `?${params.toString()}` : "",
-//          },
-//          { replace: false }
-//        );
-//        // ← ここが追加ポイント　中心移動のため
-//        if (item) {
-//          focusOnWine(item, { zoom: opts.zoom });
-//        }
-//        return;
-//      }
-//      setSelectedJAN(janStr);
-//      setIframeNonce(Date.now());
-//      setProductDrawerOpen(true);
-//      //////2026.04.以下を以下3行と置き換えのため削除
-////      if (item) {
-////        focusOnWine(item, { recenter: false, zoom: opts.zoom });
-////      }
-//      //////2026.04.上記を以下3行と置き換え
-//      if (item) {
-//        focusOnWine(item, { zoom: opts.zoom });
-//      }
-//    },
-//    [
-//      basePoints,
-//      data,
-//      closeUIsThen,
-//      location.pathname,
-//      location.search,
-//      navigate,
-//      focusOnWine,
-//    ]
-//  );
-//  //---------------------------------------------------------------------------------
-//////2026.04.以下の1セクションを置き換えのため削除
-//  //////2026.04.上記1セクションを以下の1セクションと置き換え（アクセスログ含む）
-//  //---------------------------------------------------------------------------------
-//  // 商品を開く共通関数
-//  // - /products/:jan 上では URL を更新して商品を切り替える
-//  // - /map 上では既存どおり state で Drawer を開く
-//  const openWine = useCallback(
-//    async (itemOrJan, opts = {}) => {
-//      const janStr =
-//        typeof itemOrJan === "string"
-//          ? String(itemOrJan)
-//          : String(getJanFromItem(itemOrJan));
-//
-//      if (!janStr) return;
-//
-//      const keepSearch = !!opts.preserveSearch;
-//      const keepRated = !!opts.preserveRated;
-//      const source = opts.source || null;
-//
-//      const item =
-//        typeof itemOrJan === "string"
-//          ? (
-//              basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-//              data.find((d) => String(getJanFromItem(d)) === janStr) ||
-//              null
-//            )
-//          : itemOrJan;
-//
-//      await closeUIsThen({
-//        preserveMyPage: true,
-//        preserveSearch: keepSearch,
-//        preserveRated: keepRated,
-//        preserveCluster: true,
-//      });
-//
-//      setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-//
-//      const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
-//
-//      // 商品オープンログは「開く意思決定」のここで送る
-//      if (source) {
-//        sendAccessLog({
-//          event_type: "product_open",
-//          jan_code: janStr,
-//          source,
-//          search: location.search,
-//        });
-//      }
-//
-//      if (isProductsRoute) {
-//        const nextSearch = buildSearchWithoutQrSrc(location.search);
-//
-//        navigate(
-//          {
-//            pathname: `/products/${encodeURIComponent(janStr)}`,
-//            search: nextSearch,
-//          },
-//          { replace: false }
-//        );
-//
-//        if (item) {
-//          focusOnWine(item, { zoom: opts.zoom });
-//        }
-//        return;
-//      }
-//
-//      setSelectedJAN(janStr);
-//      setIframeNonce(Date.now());
-//      setProductDrawerOpen(true);
-//
-//      if (item) {
-//        focusOnWine(item, { zoom: opts.zoom });
-//      }
-//    },
-//    [
-//      basePoints,
-//      data,
-//      closeUIsThen,
-//      location.pathname,
-//      location.search,
-//      navigate,
-//      focusOnWine,
-//    ]
-//  );
-//  //---------------------------------------------------------------------------------
   //////2026.04.上記を以下の1セクションに置き換え（アクセスログ含む）
   //---------------------------------------------------------------------------------
   // 商品を開く共通関数
@@ -2138,106 +1896,7 @@ function MapPage() {
       focusOnWine,
     ]
   );
-  //---------------------------------------------------------------------------------
 
-//  //////2026.04.以下の1セクション31行を追加
-//  //---------------------------------------------------------------------------------
-//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
-//  useEffect(() => {
-//    if (!routeJan) return;
-//
-//    const janStr = String(routeJan).trim();
-//    if (!janStr) return;
-//
-//    // 初回だけ open を確定
-//    if (routeJanHandledRef.current !== janStr) {
-//      routeJanHandledRef.current = janStr;
-//      setSelectedJAN(janStr);
-//      setProductDrawerOpen(true);
-//      setIframeNonce(Date.now());
-//    } else if (selectedJAN !== janStr) {
-//      setSelectedJAN(janStr);
-//    }
-//
-//    // 座標が分かるようになったら1回だけ寄せる
-//    if (routeJanCenteredRef.current === janStr) return;
-//
-//    const hit =
-//      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-//      data.find((d) => String(getJanFromItem(d)) === janStr);
-//
-//    if (!hit) return;
-//
-//    routeJanCenteredRef.current = janStr;
-//    didInitialCenterRef.current = true;
-//    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
-//  }, [routeJan, selectedJAN, basePoints, data, focusOnWine]);  
-//  //---------------------------------------------------------------------------------
-  //////2026.04.上記1セクションを 以下の1セクション28行と置き換え
-//  //---------------------------------------------------------------------------------
-//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
-//  useEffect(() => {
-//    if (!routeJan) return;
-//
-//    const janStr = String(routeJan).trim();
-//    if (!janStr) return;
-//
-//    // URLが変わったら、そのJANを現在の正とする
-//    routeJanHandledRef.current = janStr;
-//    setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
-//    setProductDrawerOpen(true);
-//    setIframeNonce((n) => n + 1);
-//
-//    // 座標が分かるようになったら1回だけ寄せる
-//    if (routeJanCenteredRef.current === janStr) return;
-//
-//    const hit =
-//      basePoints.find((d) => String(getJanFromItem(d)) === janStr) ||
-//      data.find((d) => String(getJanFromItem(d)) === janStr);
-//
-//    if (!hit) return;
-//
-//    routeJanCenteredRef.current = janStr;
-//    didInitialCenterRef.current = true;
-//    focusOnWine(hit, { zoom: INITIAL_ZOOM, recenter: false });
-//  }, [routeJan, basePoints, data, focusOnWine]);  
-//////2026.04.以下の1セクションを置き換えのため削除
-//  //////2026.04.上記1セクションを 以下の1セクション34行と置き換え
-//  //---------------------------------------------------------------------------------
-//  // /products/:jan で来た時は MapPage 上で商品Drawerを開く
-//  useEffect(() => {
-//    if (!routeJan) return;
-//
-//    const janStr = String(routeJan).trim();
-//    if (!janStr) return;
-//
-//    // URL上のJANを現在値に合わせる
-//    routeJanHandledRef.current = janStr;
-//    setSelectedJAN((prev) => (prev === janStr ? prev : janStr));
-//    setProductDrawerOpen(true);
-//
-//    // まだ点データが無い段階では待つ
-//    const hit =
-//      (Array.isArray(basePoints)
-//        ? basePoints.find((d) => String(getJanFromItem(d)) === janStr)
-//        : null) ||
-//      (Array.isArray(data)
-//        ? data.find((d) => String(getJanFromItem(d)) === janStr)
-//        : null);
-//
-//    if (!hit) return;
-//
-//    // そのJANについてまだ未センタリングなら、データが揃ったタイミングで1回だけ中心へ
-//    if (routeJanCenteredRef.current !== janStr) {
-//      routeJanCenteredRef.current = janStr;
-//      didInitialCenterRef.current = true;
-//
-//      requestAnimationFrame(() => {
-//        focusOnWine(hit, { zoom: INITIAL_ZOOM });
-//      });
-//    }
-//  }, [routeJan, basePoints, data, focusOnWine]);  
-//  //---------------------------------------------------------------------------------
   //////2026.04.上記を以下の1セクションと置き換え
   //---------------------------------------------------------------------------------
   // /products/:jan で来た時は MapPage 上で商品Drawerを開く
@@ -2544,34 +2203,6 @@ function MapPage() {
     return false;
   }, []);
 
-  //////2026.04.以下の1セクションを以下と置き換えのため削除
-//  //---------------------------------------------------------------------------------
-//  // 更新ボタン（ボタンで呼ぶ手動更新）
-//  const runManualRefresh = useCallback(async () => {
-//    const seq = ++manualRefreshSeqRef.current;
-//    const startedAt = Date.now();
-//
-//    // 体感：先に「できる範囲で同期」を走らせる（全部 await しない）
-//    // 1) pointsは “更新反映” の主目的なので bust=true
-//    const p1 = fetchPoints({ bust: true });
-//    // 2) allowed-jans は店舗/EC/wish の再同期
-//    const p2 = reloadAllowedJans();
-//    // 3) rated-panel は rating復元の保険（tokenありのときだけ内部で動く）
-//    const p3 = syncRatedPanel();
-//    // 5) SW更新があれば適用（controllerchange→index.jsでreloadされる）
-//    //    ※ここで強制 reload() しない。SW切替が起きた時だけ reload される。
-//    const p4 = applyServiceWorkerUpdateIfAny();
-//
-//    try {
-//      await Promise.allSettled([p1, p2, p3, p4]);
-//    } finally {
-//      // latest-only（途中で連打されたら古い方は何もしない）
-//      if (seq !== manualRefreshSeqRef.current) return;
-//      setIframeNonce((n) => n + 1);
-//      console.log("[ManualRefresh] done", { ms: Date.now() - startedAt });
-//    }
-//  }, [fetchPoints, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
-
   //////2026.04.以下の1セクション21行を上記を置き換え
   //---------------------------------------------------------------------------------
   // 更新ボタン（ボタンで呼ぶ手動更新）
@@ -2595,13 +2226,6 @@ function MapPage() {
     }
   }, [fetchPoints, fetchBoot, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
 
-  //////2026.04.以下1セクションを以下と置き換えのため削除
-//  // unmount時は進行中の points fetch を止める
-//  useEffect(() => {
-//    return () => {
-//      try { pointsAbortRef.current?.abort?.(); } catch {}
-//    };
-//  }, []);
   //////2026.04.以下を上記1セクションと置き換え
   // unmount時は進行中の fetch を止める
   useEffect(() => {
@@ -2639,33 +2263,6 @@ function MapPage() {
         viewState={viewState}
         setViewState={setViewState}
         onOpenSlider={() => navigate("/slider")}
-//        ////2026.04.以下のonPickWineセクションを 以下のonPickWine 4行と置き換え
-//        onPickWine={async (item) => {
-//          if (!item) return;
-//
-//          const janStr = getJanFromItem(item);
-//          if (!janStr) {
-//            console.warn("onPickWine: JAN が取得できませんでした", item);
-//            return;
-//          }
-//
-//          await closeUIsThen({
-//            preserveMyPage: true,
-//            preserveSearch: true,
-//            preserveCluster: true,
-//          });
-//
-//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-//          setSelectedJAN(janStr);
-//          setIframeNonce(Date.now());
-//          setProductDrawerOpen(true);
-//          focusOnWine(item, { recenter: false });
-//        }}
-//////2026.04.以下の4行を置き換えのため削除
-//        onPickWine={async (item) => {
-//          if (!item) return;
-//          await openWine(item);
-//        }}
         //////2026.04.上記を以下の4行と置き換え（アクセスログ含む）
         onPickWine={async (item) => {
           if (!item) return;
@@ -2955,44 +2552,6 @@ function MapPage() {
         open={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         data={searchPanelData}
-//        //////2026.04.以下のonPickセクションを 以下のonPick 4行と置き換え
-//        onPick={async (item) => {
-//          if (!item) return;
-//
-//          const janStr = getJanFromItem(item);
-//          if (!janStr) {
-//            console.warn(
-//              "SearchPanel onPick: JAN が取得できませんでした",
-//              item
-//            );
-//            return;
-//          }
-//
-//          await closeUIsThen({
-//            preserveMyPage: true,
-//            preserveSearch: true,
-//            preserveCluster: true,
-//          });
-//
-//          // クラスターパネルを畳む
-//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-//
-//          setSelectedJAN(janStr);
-//
-//          setIframeNonce(Date.now());
-//
-//          const tx = Number(item.umap_x),
-//            ty = Number(item.umap_y);
-//          if (Number.isFinite(tx) && Number.isFinite(ty)) {
-//            centerToUMAP(tx, ty, { zoom: viewState.zoom });
-//          }
-//          setProductDrawerOpen(true);
-//        }}
-//////2026.04.以下の4行を置き換えのため削除
-//        onPick={async (item) => {
-//          if (!item) return;
-//          await openWine(item, { preserveSearch: true, zoom: viewState.zoom });
-//        }}
         //////2026.04.上記を以下の8行と置き換え（アクセスログ含む）
         onPick={async (item) => {
           if (!item) return;
@@ -3052,37 +2611,6 @@ function MapPage() {
           const hit = data.find(
             (d) => String(getJanFromItem(d)) === jan
           );
-//          //////2026.04.以下1セクションを 以下8行と置き換え
-//          if (hit) {
-//            const janStr = getJanFromItem(hit);
-//            if (!janStr) return false;
-//
-//            await closeUIsThen({
-//              preserveMyPage: true,
-//              preserveCluster: true,
-//            });
-//
-//            setSelectedJAN(janStr);
-//
-//            setIframeNonce(Date.now());
-//            lastCommittedRef.current = { code: jan, at: now };
-//
-//            const tx = Number(hit.umap_x),
-//              ty = Number(hit.umap_y);
-//            if (Number.isFinite(tx) && Number.isFinite(ty)) {
-//              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
-//            }
-//            return true;
-//          }
-//////2026.04.以下の8行を置き換えのため削除
-//          if (hit) {
-//            const janStr = getJanFromItem(hit);
-//            if (!janStr) return false;
-//
-//            lastCommittedRef.current = { code: jan, at: now };
-//            await openWine(hit, { zoom: INITIAL_ZOOM });
-//            return true;
-//          }
           //////2026.04.上記を以下の8行と置き換え（アクセスログ含む）
           if (hit) {
             const janStr = getJanFromItem(hit);
@@ -3107,41 +2635,6 @@ function MapPage() {
         onClose={async () => {
           await closeUIsThen({ preserveCluster: true });
         }}
-//        //////2026.04.以下のonSelectJANセクションを 以下のonSelectJAN 6行と置き換え
-//        onSelectJAN={async (jan) => {
-//          await closeUIsThen({
-//            preserveMyPage: true,
-//            preserveRated: true,
-//            preserveCluster: true,
-//          });
-//
-//          // クラスターパネルを畳む
-//          setClusterCollapseKey((k) => (k == null ? 1 : k + 1));
-//
-//          try {
-//            sessionStorage.setItem("tm_from_rated_jan", String(jan));
-//          } catch {}
-//          setSelectedJAN(jan);
-//          setIframeNonce(Date.now());
-//          const item = data.find(
-//            (d) => String(getJanFromItem(d)) === String(jan)
-//          );
-//          if (item) {
-//            const tx = Number(item.umap_x),
-//              ty = Number(item.umap_y);
-//            if (Number.isFinite(tx) && Number.isFinite(ty)) {
-//              centerToUMAP(tx, ty, { zoom: INITIAL_ZOOM });
-//            }
-//          }
-//          setProductDrawerOpen(true);
-//        }}
-//////2026.04.以下の6行を置き換えのため削除
-//        onSelectJAN={async (jan) => {
-//          try {
-//            sessionStorage.setItem("tm_from_rated_jan", String(jan));
-//          } catch {}
-//          await openWine(String(jan), { preserveRated: true, zoom: INITIAL_ZOOM });
-//        }}
         //////2026.04.上記を以下の10行と置き換え（アクセスログ含む）
         onSelectJAN={async (jan) => {
           try {

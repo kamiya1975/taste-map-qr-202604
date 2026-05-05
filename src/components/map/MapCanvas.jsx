@@ -366,46 +366,6 @@ const MapCanvas = forwardRef(function MapCanvas(
     return { storePoints: store, ecPoints: ec };
   }, [filteredData, allowedJansSet, ecOnlyJansSet]);
 
-//////2026.04.以下の1セクションを以下と置き換えるため削除
-//  // --- 商品打点に付くバブル用データ（highlight2D=PC1/PC2/PC3 などの値→t[0..1]へ正規化） ---
-//  const pointBubbles = useMemo(() => {
-//    if (!highlight2D) return [];
-//
-//    // 値分布（外れ値カットは従来ヒートと同じ HEAT_CLIP_PCT を踏襲）
-//    const vals = filteredData
-//      .map(d => Number(d[highlight2D]))
-//      .filter(v => Number.isFinite(v));
-//    if (!vals.length) return [];
-//
-//    vals.sort((a, b) => a - b);
-//    const loIdx = Math.floor(HEAT_CLIP_PCT[0] * (vals.length - 1));
-//    const hiIdx = Math.floor(HEAT_CLIP_PCT[1] * (vals.length - 1));
-//    const lo = vals[loIdx];
-//    const hi = vals[hiIdx];
-//    const vHi = hi - lo < 1e-9 ? lo + 1e-9 : hi;
-//
-//    // 各商品点へ t と座標を付与
-//    return filteredData
-//      .map(d => {
-//        const v = Number(d[highlight2D]);
-//        if (!Number.isFinite(v)) return null;
-//        let t = (v - lo) / ((vHi - lo) || 1e-9);
-//        t = Math.max(0, Math.min(1, Math.pow(t, HEAT_GAMMA))); // ガンマ補正
-//
-//        const x = xOf(d);
-//        const y = yOf(d);
-//        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-//
-//        return {
-//          jan: janOf(d),
-//          position: [x, -y, 0],
-//          t,
-//          cluster: clusterOf(d),
-//        };
-//      })
-//    .filter(Boolean);
-//  }, [filteredData, highlight2D]);
-
   //////2026.04.上記を以下の1セクション42行と置き換え
   // --- 商品打点に付くバブル用データ（highlight2D=PC1/PC2/PC3 などの値→t[0..1]へ正規化） ---
   // base層も既存文脈点も同じようにバブル対象にする
@@ -630,84 +590,6 @@ const MapCanvas = forwardRef(function MapCanvas(
     return (baseCells || []).filter((c) => !usedKeys.has(keyOf(c.ix, c.iy)));
   }, [baseCells, cells]);
   
-//  //////2026.04.以下の1セクションを以下と置き換えのため削除
-//  // ベクタで描く選択ドット
-//  const selectedDotLayers = useMemo(() => {
-//    if (!selectedJAN) return [];
-//    const hit = filteredData.find(d => janOf(d) === String(selectedJAN));
-//    if (!hit || !Number.isFinite(xOf(hit)) || !Number.isFinite(yOf(hit))) return [];
-//
-//    const pos = [xOf(hit), -yOf(hit), 0];
-//    const R = 0.1; // ベース半径（見た目サイズ。0.14〜0.20で好み調整）
-//
-//    // 外側の黒丸
-//    const outer = new ScatterplotLayer({
-//      id: "selected-dot-outer",
-//      data: [{ position: pos }],
-//      getPosition: d => d.position,
-//      getFillColor: [0, 0, 0, 255],
-//      radiusUnits: "meters",
-//      getRadius: R,
-//      pickable: false,
-//      parameters: { depthTest: false },
-//    });
-//
-//    // 中の白丸（リングに見せる）
-//    const innerWhite = new ScatterplotLayer({
-//      id: "selected-dot-inner-white",
-//      data: [{ position: pos }],
-//      getPosition: d => d.position,
-//      getFillColor: [255, 255, 255, 255],
-//      radiusUnits: "meters",
-//      getRadius: R * 0.58, // リング幅の比率（0.55〜0.65で調整）
-//      pickable: false,
-//      parameters: { depthTest: false },
-//    });
-//
-//    return [outer, innerWhite];
-//  }, [filteredData, selectedJAN]);
-//////2026.04.以下の1セクションを置き換えのため削除
-//  //////2026.04.上記を以下の1セクション41行と置き換え
-//  // ベクタで描く選択ドット
-//  const selectedDotLayers = useMemo(() => {
-//    if (!selectedJAN) return [];
-//
-//    const baseList = Array.isArray(basePoints) ? basePoints : [];
-//    const hit =
-//      baseList.find((d) => janOf(d) === String(selectedJAN)) ||
-//      filteredData.find((d) => janOf(d) === String(selectedJAN));
-//
-//    if (!hit || !Number.isFinite(xOf(hit)) || !Number.isFinite(yOf(hit))) return [];
-//
-//    const pos = [xOf(hit), -yOf(hit), 0];
-//    const R = 0.1;
-//
-//    // 外側の黒丸
-//    const outer = new ScatterplotLayer({
-//      id: "selected-dot-outer",
-//      data: [{ position: pos }],
-//      getPosition: (d) => d.position,
-//      getFillColor: [0, 0, 0, 255],
-//      radiusUnits: "meters",
-//      getRadius: R,
-//      pickable: false,
-//      parameters: { depthTest: false },
-//    });
-//
-//    // 中の白丸（リングに見せる）
-//    const innerWhite = new ScatterplotLayer({
-//      id: "selected-dot-inner-white",
-//      data: [{ position: pos }],
-//      getPosition: (d) => d.position,
-//      getFillColor: [255, 255, 255, 255],
-//      radiusUnits: "meters",
-//      getRadius: R * 0.58,
-//      pickable: false,
-//      parameters: { depthTest: false },
-//    });
-//
-//    return [outer, innerWhite];
-//  }, [basePoints, filteredData, selectedJAN]);  
   //////2026.04.上記を以下の1セクション40行に置き換え
   // ベクタで描く選択ドット
   const selectedDotLayers = useMemo(() => {
