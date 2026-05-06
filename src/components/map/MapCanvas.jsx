@@ -338,36 +338,44 @@ const MapCanvas = forwardRef(function MapCanvas(
     });
   }, [data, visibleJansSet, allowedJansSet, ecOnlyJansSet]);
 
-  // --- EC専用 / 店舗商品 の振り分け ---
-  //  憲法：表示判定の一次条件は “集合（allowed / ec_only）”
-  //       activeStoreId は「店舗JANの解釈条件」としてのみ後段適用
-  //  表示：店舗=●グレイ / EC専用=●オレンジ
-  //  EC = ecOnly　　
+  //////2026.05.以下1セクションを置き換え
+//////  // --- EC専用 / 店舗商品 の振り分け ---
+//////  //  憲法：表示判定の一次条件は “集合（allowed / ec_only）”
+//////  //       activeStoreId は「店舗JANの解釈条件」としてのみ後段適用
+//////  //  表示：店舗=●グレイ / EC専用=●オレンジ
+//////  //  EC = ecOnly　　
+//////  const { storePoints, ecPoints } = useMemo(() => {
+//////    // 集合が無い = フィルタ無し → 全件を店舗●として表示
+//////    const allowMode = allowedJansSet instanceof Set && allowedJansSet.size > 0;
+//////    const ecMode    = ecOnlyJansSet instanceof Set && ecOnlyJansSet.size > 0;
+//////    if (!allowMode && !ecMode) {
+//////      return { storePoints: filteredData, ecPoints: [] };
+//////    }
+//////
+//////    const store = [];
+//////    const ec = [];
+//////
+//////    filteredData.forEach((d) => {
+//////      const jan = janOf(d);
+//////      if (!jan) return;
+//////
+//////      // null/undefined の場合に .has() を呼ばない（MapPage の「null=制限なし」と整合）
+//////      const isEc    = ecMode && ecOnlyJansSet.has(jan);
+//////      const isStore = allowMode && allowedJansSet.has(jan) && !isEc;
+//////
+//////      if (isStore) store.push(d);
+//////      else if (isEc) ec.push(d);
+//////    });
+//////
+//////    return { storePoints: store, ecPoints: ec };
+//////  }, [filteredData, allowedJansSet, ecOnlyJansSet]);
+  // QR版：EC文脈は使わず、表示対象はすべて通常打点として扱う
   const { storePoints, ecPoints } = useMemo(() => {
-    // 集合が無い = フィルタ無し → 全件を店舗●として表示
-    const allowMode = allowedJansSet instanceof Set && allowedJansSet.size > 0;
-    const ecMode    = ecOnlyJansSet instanceof Set && ecOnlyJansSet.size > 0;
-    if (!allowMode && !ecMode) {
-      return { storePoints: filteredData, ecPoints: [] };
-    }
-
-    const store = [];
-    const ec = [];
-
-    filteredData.forEach((d) => {
-      const jan = janOf(d);
-      if (!jan) return;
-
-      // null/undefined の場合に .has() を呼ばない（MapPage の「null=制限なし」と整合）
-      const isEc    = ecMode && ecOnlyJansSet.has(jan);
-      const isStore = allowMode && allowedJansSet.has(jan) && !isEc;
-
-      if (isStore) store.push(d);
-      else if (isEc) ec.push(d);
-    });
-
-    return { storePoints: store, ecPoints: ec };
-  }, [filteredData, allowedJansSet, ecOnlyJansSet]);
+    return {
+      storePoints: Array.isArray(filteredData) ? filteredData : [],
+      ecPoints: [],
+    };
+  }, [filteredData]);
 
   //////2026.04.上記を以下の1セクション42行と置き換え
   // --- 商品打点に付くバブル用データ（highlight2D=PC1/PC2/PC3 などの値→t[0..1]へ正規化） ---
