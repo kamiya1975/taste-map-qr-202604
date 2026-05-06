@@ -949,6 +949,19 @@ function MapPage() {
     );
   }, [qrVisiblePoints]);
 
+  //////2026.05.以下ログ追加（問題解決のため）
+  useEffect(() => {
+    console.log("[QR DEBUG]", {
+      search: location.search,
+      qrContext,
+      basePoints: basePoints.length,
+      qrTargetJans: qrTargetJansSet.size,
+      qrVisiblePoints: qrVisiblePoints.length,
+      targetSample: Array.from(qrTargetJansSet).slice(0, 10),
+      baseSample: basePoints.slice(0, 10).map((d) => getJanFromItem(d)),
+    });
+  }, [location.search, qrContext, basePoints, qrTargetJansSet, qrVisiblePoints]);
+
 //////2026.05.以下を削除
 //////  //---------------------------------------------------------------------------------
 //////  // ---- JanSet（ visibleJanSet, allJanSet ）----
