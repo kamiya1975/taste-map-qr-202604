@@ -70,7 +70,8 @@ const yOf = (d) => {
 const clusterOf = (d) => toNumOrNull(d?.cluster ?? d?.CLUSTER ?? null);
 // ここまで 正規化ユーティリティ 2025.12.20.追加
 
-const ANCHOR_JAN = "4964044046324";
+//////2026.05.
+//////const ANCHOR_JAN = "4964044046324";
 
 // （嗜好重心ピン）
 const makePinSVG = ({
