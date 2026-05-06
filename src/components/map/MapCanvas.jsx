@@ -589,13 +589,13 @@ const MapCanvas = forwardRef(function MapCanvas(
   }, [filteredData, userRatings]);
 
   //////2026.04.以下の1セクション7行を追加
-  // --- base層専用セル（既存文脈セルと重ならないものだけ） ---
-  const baseOnlyCells = useMemo(() => {
-    const usedKeys = new Set(
-      (cells || []).map((c) => keyOf(c.ix, c.iy))
-    );
-    return (baseCells || []).filter((c) => !usedKeys.has(keyOf(c.ix, c.iy)));
-  }, [baseCells, cells]);
+//////  // --- base層専用セル（既存文脈セルと重ならないものだけ） ---
+//////  const baseOnlyCells = useMemo(() => {
+//////    const usedKeys = new Set(
+//////      (cells || []).map((c) => keyOf(c.ix, c.iy))
+//////    );
+//////    return (baseCells || []).filter((c) => !usedKeys.has(keyOf(c.ix, c.iy)));
+//////  }, [baseCells, cells]);
   
   //////2026.04.上記を以下の1セクション40行に置き換え
   // ベクタで描く選択ドット
