@@ -32,10 +32,12 @@ const WISH_STAR_RGBA = WISH_STAR_COLOR; // [178, 53, 103, 255] を想定
 const STAR_ORANGE = [247, 147, 30, 255]; // #F7931E くらいのオレンジ
 const TILE_GRAY = `${process.env.PUBLIC_URL || ""}/img/gray-tile.png`;
 const TILE_OCHRE = `${process.env.PUBLIC_URL || ""}/img/ochre-tile.png`;
-//////2026.04.以下の3行を追加
-const BASE_GRAY = [160, 160, 160, 220];          // 新base
-const STORE_ORANGE = STAR_ORANGE;                // 既存グレー → オレンジ
-const EC_YELLOW = [235, 220,  80, 255];          // 既存オレンジ → 黄色
+//////2026.04.以下3行を追加
+//////2026.05.以下3行を削除、1行を追加
+//////const BASE_GRAY = [160, 160, 160, 220];          // 新base
+//////const STORE_ORANGE = STAR_ORANGE;                // 既存グレー → オレンジ
+//////const EC_YELLOW = [235, 220,  80, 255];          // 既存オレンジ → 黄色
+const QR_POINT_ORANGE = STAR_ORANGE;
 
 // ===== 正規化ユーティリティ（MapPageと整合）2025.12.20.追加=====
 const toNumOrNull = (v) => {
@@ -229,12 +231,12 @@ const MapCanvas = forwardRef(function MapCanvas(
   {
     data,
     //////2026.04.以下の1行を追加
-    basePoints,
+//////    basePoints,
     visibleJansSet,
     allowedJansSet,
     ecOnlyJansSet,
     userRatings,
-    selectedJAN,
+//////    selectedJAN,
     //////2026.04.以下の1行を追加
     highlightedJAN,
     wishJansSet,
@@ -250,7 +252,7 @@ const MapCanvas = forwardRef(function MapCanvas(
     edgeMarginXPx = 8,
     edgeMarginYPx = 20,
     clusterColorMode = false,
-    basePoint,
+//////    basePoint,
   },
   deckRef   // ref を受け取る
 ) {
@@ -372,7 +374,9 @@ const MapCanvas = forwardRef(function MapCanvas(
   const pointBubbles = useMemo(() => {
     if (!highlight2D) return [];
 
-    const src = Array.isArray(basePoints) ? basePoints : [];
+    //////2026.05.以下1行と置き換え
+//////    const src = Array.isArray(basePoints) ? basePoints : [];
+    const src = Array.isArray(filteredData) ? filteredData : [];
 
     // 値分布（外れ値カットは従来ヒートと同じ HEAT_CLIP_PCT を踏襲）
     const vals = src
@@ -408,7 +412,9 @@ const MapCanvas = forwardRef(function MapCanvas(
         };
       })
       .filter(Boolean);
-  }, [basePoints, highlight2D]);
+  //////2026.05.以下1行と置き換え
+//////  }, [basePoints, highlight2D]);
+  }, [filteredData, highlight2D]);
 
   // 初期クランプ
   useEffect(() => {
@@ -513,40 +519,41 @@ const MapCanvas = forwardRef(function MapCanvas(
     return { thinLines: thin, thickLines: thick };
   }, []);
 
-  //////2026.04.以下の1セクション33行を追加
-  // --- セル集計（base層用） ---
-  const baseCells = useMemo(() => {
-    const map = new Map();
-    const src = Array.isArray(basePoints) ? basePoints : [];
-
-    src.forEach((d) => {
-      const x = xOf(d);
-      const y = yOf(d);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-      const ix = toIndex(x);
-      const iy = toIndex(-y);
-      const key = keyOf(ix, iy);
-
-      if (!map.has(key)) {
-        map.set(key, {
-          ix,
-          iy,
-          position: [toCorner(ix), toCorner(iy)],
-          center: [
-            toCorner(ix) + GRID_CELL_SIZE / 2,
-            toCorner(iy) + GRID_CELL_SIZE / 2,
-            0,
-          ],
-          count: 0,
-        });
-      }
-
-      map.get(key).count += 1;
-    });
-
-    return Array.from(map.values());
-  }, [basePoints]);
+  //////2026.05.以下1セクション削除
+//////  //////2026.04.以下1セクション33行を追加
+//////  // --- セル集計（base層用） ---
+//////  const baseCells = useMemo(() => {
+//////    const map = new Map();
+//////    const src = Array.isArray(basePoints) ? basePoints : [];
+//////
+//////    src.forEach((d) => {
+//////      const x = xOf(d);
+//////      const y = yOf(d);
+//////      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+//////
+//////      const ix = toIndex(x);
+//////      const iy = toIndex(-y);
+//////      const key = keyOf(ix, iy);
+//////
+//////      if (!map.has(key)) {
+//////        map.set(key, {
+//////          ix,
+//////          iy,
+//////          position: [toCorner(ix), toCorner(iy)],
+//////          center: [
+//////            toCorner(ix) + GRID_CELL_SIZE / 2,
+//////            toCorner(iy) + GRID_CELL_SIZE / 2,
+//////            0,
+//////          ],
+//////          count: 0,
+//////        });
+//////      }
+//////
+//////      map.get(key).count += 1;
+//////    });
+//////
+//////    return Array.from(map.values());
+//////  }, [basePoints]);
 
   // --- セル集計（評価フラグ） ---
   const cells = useMemo(() => {
@@ -595,11 +602,13 @@ const MapCanvas = forwardRef(function MapCanvas(
   const selectedDotLayers = useMemo(() => {
     if (!highlightedJAN) return [];
 
-    const baseList = Array.isArray(basePoints) ? basePoints : [];
-    const hit =
-      baseList.find((d) => janOf(d) === String(highlightedJAN)) ||
-      filteredData.find((d) => janOf(d) === String(highlightedJAN));
-
+    //////2026.05.以下1行と置き換え
+//////    const baseList = Array.isArray(basePoints) ? basePoints : [];
+//////    const hit =
+//////      baseList.find((d) => janOf(d) === String(highlightedJAN)) ||
+//////      filteredData.find((d) => janOf(d) === String(highlightedJAN));
+    const hit = filteredData.find((d) => janOf(d) === String(highlightedJAN));
+      
     if (!hit || !Number.isFinite(xOf(hit)) || !Number.isFinite(yOf(hit))) return [];
 
     const pos = [xOf(hit), -yOf(hit), 0];
@@ -630,40 +639,43 @@ const MapCanvas = forwardRef(function MapCanvas(
     });
 
     return [outer, innerWhite];
-  }, [basePoints, filteredData, highlightedJAN]);
+  //////2026.05.以下1行と置き換え  
+//////  }, [basePoints, filteredData, highlightedJAN]);
+  }, [filteredData, highlightedJAN]);
 
-  //////2026.04.以下の1セクション31行を追加（getFillColorのセクションを以下に変更済み）
+  //////2026.05.以下1セクション削除
+  //////2026.04.以下1セクション31行を追加（getFillColorのセクションを以下に変更済み）
   // --- レイヤ：base（常時表示の土台） ---
-  const baseLayer = useMemo(() => {
-    if (!Array.isArray(basePoints) || basePoints.length === 0) return null;
-
-    return new ScatterplotLayer({
-      id: "base-points",
-      data: basePoints,
-      getPosition: (d) => {
-        const x = xOf(d), y = yOf(d);
-        return [x, -y, 0];
-      },
-      getFillColor: (d) => {
-        const janStr = janOf(d);
-        if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;
-
-        const c = clusterOf(d);
-        if (clusterColorMode && Number.isFinite(c)) {
-          return getClusterRGBA(c);
-        }
-
-        return BASE_GRAY;
-      },
-      updateTriggers: {
-        getFillColor: [userRatings, clusterColorMode],
-      },
-      radiusUnits: "meters",
-      getRadius: clusterColorMode ? MAP_POINT_RADIUS_CLUSTER : MAP_POINT_RADIUS,
-      pickable: true,
-      parameters: { depthTest: false },
-    });
-  }, [basePoints, userRatings, clusterColorMode]);
+//////  const baseLayer = useMemo(() => {
+//////    if (!Array.isArray(basePoints) || basePoints.length === 0) return null;
+//////
+//////    return new ScatterplotLayer({
+//////      id: "base-points",
+//////      data: basePoints,
+//////      getPosition: (d) => {
+//////        const x = xOf(d), y = yOf(d);
+//////        return [x, -y, 0];
+//////      },
+//////      getFillColor: (d) => {
+//////        const janStr = janOf(d);
+//////        if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;
+//////
+//////        const c = clusterOf(d);
+//////        if (clusterColorMode && Number.isFinite(c)) {
+//////          return getClusterRGBA(c);
+//////        }
+//////
+//////        return BASE_GRAY;
+//////      },
+//////      updateTriggers: {
+//////        getFillColor: [userRatings, clusterColorMode],
+//////      },
+//////      radiusUnits: "meters",
+//////      getRadius: clusterColorMode ? MAP_POINT_RADIUS_CLUSTER : MAP_POINT_RADIUS,
+//////      pickable: true,
+//////      parameters: { depthTest: false },
+//////    });
+//////  }, [basePoints, userRatings, clusterColorMode]);
 
   // --- レイヤ：打点（店舗商品＋通常点） ---
   const mainLayer = useMemo(
@@ -682,9 +694,11 @@ const MapCanvas = forwardRef(function MapCanvas(
           if (clusterColorMode && Number.isFinite(c)) {
             return getClusterRGBA(c);
           }
-          //////2026.04.以下の1行を以下の1行と置き換え
+          //////2026.04.以下1行を以下の1行と置き換え
           //return MAP_POINT_COLOR;
-          return STORE_ORANGE;
+          //////2026.05.以下1行と置き換え
+          //////return STORE_ORANGE;
+          return QR_POINT_ORANGE;
         },
         updateTriggers: {
           getFillColor: [clusterColorMode, userRatings],
@@ -707,39 +721,40 @@ const MapCanvas = forwardRef(function MapCanvas(
     console.log("[MapCanvas] storePoints =", storePoints.length, "ecPoints =", ecPoints.length);
   }, [visibleJansSet, allowedJansSet, ecOnlyJansSet, storePoints.length, ecPoints.length]);
 
-  // --- レイヤ：EC商品の●マーカー（オレンジ） ---
-  const ecPointLayer = useMemo(() => {
-    if (!ecPoints || ecPoints.length === 0) return null;
-
-    return new ScatterplotLayer({
-      id: "ec-points",
-      data: ecPoints.map((d) => ({
-        __raw: d,
-        jan: janOf(d),
-        x: xOf(d),
-        y: yOf(d),
-        cluster: clusterOf(d),
-      })),
-      getPosition: (d) => [d.x, -d.y, 0],
-      getFillColor: (d) => {
-        const janStr = d.jan;
-        if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;     // 評価ありは黒（上書き）
-        if (clusterColorMode && Number.isFinite(d.cluster)) {
-          return getClusterRGBA(d.cluster);
-        }
-        //////2026.04.以下の1行を以下の1行と置き換え
-        //return STAR_ORANGE; // ← EC扱いはオレンジ●
-        return EC_YELLOW;
-      },
-      updateTriggers: {
-        getFillColor: [clusterColorMode, userRatings],
-      },
-      radiusUnits: "meters",
-      getRadius: clusterColorMode ? MAP_POINT_RADIUS_CLUSTER : MAP_POINT_RADIUS,
-      pickable: true,
-      parameters: { depthTest: false },
-    });
-  }, [ecPoints, userRatings, clusterColorMode]);
+  //////2026.05.以下1セクションを削除
+//////  // --- レイヤ：EC商品の●マーカー（オレンジ） ---
+//////  const ecPointLayer = useMemo(() => {
+//////    if (!ecPoints || ecPoints.length === 0) return null;
+//////
+//////    return new ScatterplotLayer({
+//////      id: "ec-points",
+//////      data: ecPoints.map((d) => ({
+//////        __raw: d,
+//////        jan: janOf(d),
+//////        x: xOf(d),
+//////        y: yOf(d),
+//////        cluster: clusterOf(d),
+//////      })),
+//////      getPosition: (d) => [d.x, -d.y, 0],
+//////      getFillColor: (d) => {
+//////        const janStr = d.jan;
+//////        if (Number(userRatings?.[janStr]?.rating) > 0) return BLACK;     // 評価ありは黒（上書き）
+//////        if (clusterColorMode && Number.isFinite(d.cluster)) {
+//////          return getClusterRGBA(d.cluster);
+//////        }
+//////        //////2026.04.以下の1行を以下の1行と置き換え
+//////        //return STAR_ORANGE; // ← EC扱いはオレンジ●
+//////        return EC_YELLOW;
+//////      },
+//////      updateTriggers: {
+//////        getFillColor: [clusterColorMode, userRatings],
+//////      },
+//////      radiusUnits: "meters",
+//////      getRadius: clusterColorMode ? MAP_POINT_RADIUS_CLUSTER : MAP_POINT_RADIUS,
+//////      pickable: true,
+//////      parameters: { depthTest: false },
+//////    });
+//////  }, [ecPoints, userRatings, clusterColorMode]);
 
   // --- レイヤ：飲みたい★---
   // 優先順位：rating > wished(★) > store/ec
@@ -868,46 +883,47 @@ const MapCanvas = forwardRef(function MapCanvas(
     });
   }, [userPin]);
 
-  // --- レイヤ：基準のワイン（常時表示コンパス） ---
-  const anchorCompassLayer = useMemo(() => {
-    let x = null;
-    let yUMAP = null;
-
-    // ① MapPage から渡されたロット別の基準点を優先
-    if (basePoint && Number.isFinite(basePoint.x) && Number.isFinite(basePoint.y)) {
-      x = Number(basePoint.x);
-      yUMAP = Number(basePoint.y);
-    } else {
-      // ② なければ従来通り ANCHOR_JAN の座標にフォールバック
-      const item = filteredData.find(d => janOf(d) === ANCHOR_JAN);
-      if (!item || !Number.isFinite(xOf(item)) || !Number.isFinite(yOf(item))) {
-        return null;
-      }
-      x = xOf(item);
-      yUMAP = yOf(item);
-    }
-
-    return new IconLayer({
-      id: "anchor-compass",
-      data: [{ position: [x, -yUMAP, 0] }],  // y は DeckGL 用に反転
-      getPosition: d => d.position,
-      getIcon: () => ({
-        url: `${process.env.PUBLIC_URL || ""}/img/compass.png`,
-        width: 310,
-        height: 310,
-        anchorX: 155,
-        anchorY: 155,
-      }),
-      sizeUnits: "meters",
-      getSize: 0.5,
-      billboard: true,
-      pickable: true,               // クリック可能にする
-      onClick: () => {              // コンパスをタップしたら SliderPage を開く
-        onOpenSlider?.();
-      },
-      parameters: { depthTest: false },
-    });
-  }, [filteredData, basePoint, onOpenSlider]);
+  //////2026.05.以下1セクションを削除　　必要なら最小 const anchorCompassLayer = null;
+//////  // --- レイヤ：基準のワイン（常時表示コンパス） ---
+//////  const anchorCompassLayer = useMemo(() => {
+//////    let x = null;
+//////    let yUMAP = null;
+//////
+//////    // ① MapPage から渡されたロット別の基準点を優先
+//////    if (basePoint && Number.isFinite(basePoint.x) && Number.isFinite(basePoint.y)) {
+//////      x = Number(basePoint.x);
+//////      yUMAP = Number(basePoint.y);
+//////    } else {
+//////      // ② なければ従来通り ANCHOR_JAN の座標にフォールバック
+//////      const item = filteredData.find(d => janOf(d) === ANCHOR_JAN);
+//////      if (!item || !Number.isFinite(xOf(item)) || !Number.isFinite(yOf(item))) {
+//////        return null;
+//////      }
+//////      x = xOf(item);
+//////     yUMAP = yOf(item);
+//////    }
+//////
+//////    return new IconLayer({
+//////      id: "anchor-compass",
+//////      data: [{ position: [x, -yUMAP, 0] }],  // y は DeckGL 用に反転
+//////      getPosition: d => d.position,
+//////      getIcon: () => ({
+//////        url: `${process.env.PUBLIC_URL || ""}/img/compass.png`,
+//////        width: 310,
+//////        height: 310,
+//////        anchorX: 155,
+//////        anchorY: 155,
+//////      }),
+//////      sizeUnits: "meters",
+//////      getSize: 0.5,
+//////      billboard: true,
+//////      pickable: true,               // クリック可能にする
+//////      onClick: () => {              // コンパスをタップしたら SliderPage を開く
+//////        onOpenSlider?.();
+//////      },
+//////      parameters: { depthTest: false },
+//////    });
+//////  }, [filteredData, basePoint, onOpenSlider]);
 
   // --- 近傍探索（クリック時） ---
   const findNearestWine = useCallback(
@@ -1040,11 +1056,13 @@ const MapCanvas = forwardRef(function MapCanvas(
         }
 
         // しきい値内なら開く
-        if (janOf(nearest) === ANCHOR_JAN) {
-          onOpenSlider?.();
-        } else {
-          onPickWine?.(nearest);
-        }
+        //////2026.05.以下1行と置き換え
+//////        if (janOf(nearest) === ANCHOR_JAN) {
+//////          onOpenSlider?.();
+//////        } else {
+//////          onPickWine?.(nearest);
+//////        }
+        onPickWine?.(nearest);
       }}
 
       pickingRadius={12}
@@ -1078,30 +1096,31 @@ const MapCanvas = forwardRef(function MapCanvas(
           widthUnits: "pixels",
         }),
 
-        //////2026.04.以下の1セクション23行を追加
-        // ①-0 base層の地模様タイル / 既存文脈セルと重ならない部分だけ
-        (!highlight2D && !clusterColorMode) ? new IconLayer({
-          id: "base-cell-tiles",
-          data: baseOnlyCells,          
-          getPosition: (d) => d.center,
-          getIcon: () => ({
-            url: TILE_GRAY,
-            width: 32,
-            height: 32,
-            anchorX: 16,
-            anchorY: 16,
-          }),
-          sizeUnits: "meters",
-          getSize: GRID_CELL_SIZE,
-          billboard: true,
-          pickable: false,
-          parameters: { depthTest: false },
-          updateTriggers: {
-            getIcon: [GRID_CELL_SIZE],
-            getPosition: [GRID_CELL_SIZE],
-            getSize: [GRID_CELL_SIZE],
-          },
-        }) : null,
+        //////2026.05.以下1セクションを削除
+//////        //////2026.04.以下の1セクション23行を追加
+//////        // ①-0 base層の地模様タイル / 既存文脈セルと重ならない部分だけ
+//////        (!highlight2D && !clusterColorMode) ? new IconLayer({
+//////          id: "base-cell-tiles",
+//////          data: baseOnlyCells,          
+//////          getPosition: (d) => d.center,
+//////          getIcon: () => ({
+//////            url: TILE_GRAY,
+//////            width: 32,
+//////            height: 32,
+//////            anchorX: 16,
+//////            anchorY: 16,
+//////          }),
+//////          sizeUnits: "meters",
+//////          getSize: GRID_CELL_SIZE,
+//////          billboard: true,
+//////          pickable: false,
+////////////          parameters: { depthTest: false },
+//////          updateTriggers: {
+//////            getIcon: [GRID_CELL_SIZE],
+//////            getPosition: [GRID_CELL_SIZE],
+//////            getSize: [GRID_CELL_SIZE],
+//////          },
+//////        }) : null,
 
         // ① 既存文脈側のセル地模様タイル / セルの地模様（タイル）は「バブル無し かつ クラスタ色OFFのときだけ」表示
         (!highlight2D && !clusterColorMode) ? new IconLayer({
@@ -1168,7 +1187,7 @@ const MapCanvas = forwardRef(function MapCanvas(
         // ピン/コンパス
         userPinCompassLayer,
         compassLayer,
-        anchorCompassLayer,
+//////        anchorCompassLayer,
 
         //////2026.04.以下の2点を 以下の3点と置き換え（baseLayer, mainLayer, ecPointLayer）
 //        // 打点（店舗商品の ●グレイ）
@@ -1178,13 +1197,13 @@ const MapCanvas = forwardRef(function MapCanvas(
 //        ecPointLayer,
 
         // base（土台の全打点追加 → グレイ）
-        baseLayer,
+//////        baseLayer,
 
         // 打点 店舗商品の●（既存グレー → オレンジ）
         mainLayer,
 
         // EC専用商品の●（既存オレンジ → 黄色）
-        ecPointLayer,
+//////        ecPointLayer,
 
         // 飲みたい ★赤（store/ec の上に重ねる）
         wishStarLayer,
