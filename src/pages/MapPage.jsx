@@ -728,6 +728,9 @@ function MapPage() {
   const bootAbortRef = useRef(null);
   const routeJanHandledRef = useRef("");
   const routeJanCenteredRef = useRef("");
+  //////2026.05.以下2行を追加
+  const qrContextFetchSeqRef = useRef(0);
+  const qrContextAbortRef = useRef(null);
   //////2026.04.以下1行を追加（アクセスログ）
   const qrLandingLoggedRef = useRef(new Set());
 
@@ -791,6 +794,10 @@ function MapPage() {
   const [wishVersion, setWishVersion] = useState(0);
   //////2026.04.以下1行を追加
   const [activeJans, setActiveJans] = useState([]);
+  //////2026.05.以下3行を追加
+  const [qrContext, setQrContext] = useState(null);
+  const [qrTargetJansSet, setQrTargetJansSet] = useState(() => new Set());
+  const [qrContextLoading, setQrContextLoading] = useState(false);
 
   // wish の「即時反映（SET_WISHLIST）」が API 結果で戻されないようにする保険
   const wishOverrideRef = useRef(new Map()); // jan -> { value:boolean, at:number }
@@ -906,7 +913,7 @@ function MapPage() {
     }
   }, [navigate]);
 
-  //////2026.04.以下の1セクションを追加
+  //////2026.04.以下1セクションを追加
   //---------------------------------------------------------------------------------
   // base層:
   // points JSON（normalize済み data） ∩ boot.active_jans
@@ -916,7 +923,31 @@ function MapPage() {
 
     const activeSet = new Set(activeJans.map(String));
     return data.filter((d) => activeSet.has(String(getJanFromItem(d))));
-  }, [data, activeJans]);  
+  }, [data, activeJans]);
+
+  //////2026.05.以下1セクションを追加
+  //---------------------------------------------------------------------------------
+  // QR表示打点:
+  // base(points JSON ∩ active_jans) ∩ QR対象JAN
+  const qrVisiblePoints = useMemo(() => {
+    if (!Array.isArray(basePoints) || basePoints.length === 0) return [];
+
+    if (!(qrTargetJansSet instanceof Set) || qrTargetJansSet.size === 0) {
+      return [];
+    }
+
+    return basePoints.filter((d) =>
+      qrTargetJansSet.has(String(getJanFromItem(d)))
+    );
+  }, [basePoints, qrTargetJansSet]);
+
+  const qrVisibleJansSet = useMemo(() => {
+    return new Set(
+      (Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [])
+        .map((d) => String(getJanFromItem(d)))
+        .filter(Boolean)
+    );
+  }, [qrVisiblePoints]);
 
   //---------------------------------------------------------------------------------
   // ---- JanSet（ visibleJanSet, allJanSet ）----
@@ -930,7 +961,7 @@ function MapPage() {
     return null;        // null = 全点フォールバック扱い
   }, [allowedJansSet]);
 
-  //////2026.04.以下の1セクション8行と上記を置き換え
+  //////2026.04.以下1セクションを置き換え
   // --- 全点フォールバック用 ---
   // base層（points ∩ active_jans）を “表示してよい全打点” とする
   const allJansSet = useMemo(() => {
@@ -941,18 +972,26 @@ function MapPage() {
   }, [basePoints]);
 
   // --- MapCanvas に渡す “見える集合” を確定（参照安定）---
+  //////2026.05.以下の行を置き換え
+//////  const visibleJansSetForCanvas = useMemo(() => {
+//////    return visibleJansSet instanceof Set ? visibleJansSet : allJansSet;
+//////  }, [visibleJansSet, allJansSet]);
   const visibleJansSetForCanvas = useMemo(() => {
-    return visibleJansSet instanceof Set ? visibleJansSet : allJansSet;
-  }, [visibleJansSet, allJansSet]);
+    return qrVisibleJansSet;
+  }, [qrVisibleJansSet]);
 
   // --- MapCanvas に渡す “許可集合” は「空Set＝未確定」を null に寄せる ---
   // MapCanvas側で null を“制限なし”として扱う
+  //////2026.05.以下の行を置き換え
+//////  const allowedJansSetForCanvas = useMemo(() => {
+//////    if (!(allowedJansSet instanceof Set)) return null;
+//////    return allowedJansSet.size > 0 ? allowedJansSet : null;
+//////  }, [allowedJansSet]);
   const allowedJansSetForCanvas = useMemo(() => {
-    if (!(allowedJansSet instanceof Set)) return null;
-    return allowedJansSet.size > 0 ? allowedJansSet : null;
-  }, [allowedJansSet]);
+    return qrVisibleJansSet.size > 0 ? qrVisibleJansSet : new Set();
+  }, [qrVisibleJansSet]);
   
-  //////2026.04.以下の1セクション13行を上記と置き換え
+  //////2026.04.以下1セクションを置き換え
   //---------------------------------------------------------------------------------
   // 商品iframe URL（店舗コンテキスト＆キャッシュバスト込み）
   // - ctx: 店舗コンテキスト（main/token）
@@ -1043,16 +1082,95 @@ function MapPage() {
     }
   }, []);
 
-  //////20206.04.以下の1セクション7行を上記と置き換え
+  //////2026.05.以下1セクションすべてを追加
+  //---------------------------------------------------------------------------------
+  // QR文脈取得
+  const getQrParamsFromSearch = useCallback(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+
+      const rawStoreId = params.get("store_id");
+      const rawImporterId = params.get("importer_id");
+
+      const storeId = rawStoreId ? Number(rawStoreId) : null;
+      const importerId = rawImporterId ? Number(rawImporterId) : null;
+
+      return {
+        storeId: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
+        importerId: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+      };
+    } catch {
+      return { storeId: null, importerId: null };
+    }
+  }, [location.search]);
+
+  const fetchQrContext = useCallback(async () => {
+    const { storeId, importerId } = getQrParamsFromSearch();
+
+    if (!storeId && !importerId) {
+      setQrContext(null);
+      setQrTargetJansSet(new Set());
+      return;
+    }
+
+    const seq = ++qrContextFetchSeqRef.current;
+
+    try { qrContextAbortRef.current?.abort?.(); } catch {}
+    const ac = new AbortController();
+    qrContextAbortRef.current = ac;
+
+    setQrContextLoading(true);
+
+    try {
+      const params = new URLSearchParams();
+      if (storeId) params.set("store_id", String(storeId));
+      if (importerId) params.set("importer_id", String(importerId));
+
+      const res = await fetch(`${API_BASE}/api/qr/map-products/context?${params.toString()}`, {
+        cache: "no-store",
+        signal: ac.signal,
+      });
+
+      if (!res.ok) throw new Error(`qr context HTTP ${res.status}`);
+
+      const json = await res.json();
+
+      if (seq !== qrContextFetchSeqRef.current) return;
+
+      const targetJans = Array.isArray(json?.target_jans)
+        ? json.target_jans.map(String).filter(Boolean)
+        : [];
+
+      setQrContext(json || null);
+      setQrTargetJansSet(new Set(targetJans));
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      console.error("[MapPage] QR context fetch error", e);
+
+      if (seq !== qrContextFetchSeqRef.current) return;
+      setQrContext(null);
+      setQrTargetJansSet(new Set());
+    } finally {
+      if (seq === qrContextFetchSeqRef.current) {
+        setQrContextLoading(false);
+      }
+    }
+  }, [getQrParamsFromSearch]);
+
+  //////2026.04.以下1セクションを置き換え
   //---------------------------------------------------------------------------------
   // 検索パネルに渡すデータ
-  // - 一覧表示は base層全点をそのまま使う
-  // - 評価/飲みたいは別パネルで見る前提
+//////  // - 一覧表示は base層全点をそのまま使う
+//////  // - 評価/飲みたいは別パネルで見る前提
+//////  const searchPanelData = useMemo(() => {
+//////    return Array.isArray(basePoints) ? basePoints : [];
+//////  }, [basePoints]);
+  //////2026.05.以下1セクションを置き換え
   const searchPanelData = useMemo(() => {
-    return Array.isArray(basePoints) ? basePoints : [];
-  }, [basePoints]);
+    return Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
+  }, [qrVisiblePoints]);
 
-  //////2026.04.一時ログ追加のため以下の6行を追加
+  //////2026.04.一時ログ追加のため以下6行を追加
   useEffect(() => {
     console.log("[DEBUG] data.length =", Array.isArray(data) ? data.length : -1);
     console.log("[DEBUG] activeJans.length =", Array.isArray(activeJans) ? activeJans.length : -1);
@@ -1523,12 +1641,19 @@ function MapPage() {
     fetchPoints({ bust: false });
   }, [fetchPoints]);
 
-  //////2026.04.以下の1セクション5行を追加
+  //////2026.04.以下1セクションを追加
   //---------------------------------------------------------------------------------
   // boot 初回取得
   useEffect(() => {
     fetchBoot();
   }, [fetchBoot]);
+
+  //////2026.05.以下1セクションを追加
+  //---------------------------------------------------------------------------------
+  // QR文脈 初回/URL変更時取得
+  useEffect(() => {
+    fetchQrContext();
+  }, [fetchQrContext]);
 
   //---------------------------------------------------------------------------------
   // スキャナ：未登録JANの警告リセット
@@ -1937,11 +2062,16 @@ function MapPage() {
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
   const findNearestWineWorld = useCallback(
     (wx, wy) => {
-      if (!Array.isArray(data) || data.length === 0) return null;
+      //////2026.05.以下2行と置き換え
+//////      if (!Array.isArray(data) || data.length === 0) return null;
+      const src = Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
+      if (src.length === 0) return null;
       let best = null,
         bestD2 = Infinity;
-      const storeSetValid = storeJansSet && storeJansSet.size > 0;        
-      for (const d of data) {
+      const storeSetValid = storeJansSet && storeJansSet.size > 0;
+      //////2026.05.以下1行と置き換え        
+//////      for (const d of data) {
+      for (const d of src) {
         const jan = String(getJanFromItem(d));
         // 店舗集合が信頼できるときだけ「店舗のみ」に絞る
         // 不明なときは絞らない（= 店舗集合を捏造しない）
@@ -1959,7 +2089,9 @@ function MapPage() {
       }
       return best;
     },
-    [data, storeJansSet]
+    //////2026.05.以下1行と置き換え
+//////    [data, storeJansSet]
+    [qrVisiblePoints]
   );
 
   // 「あなたの味覚位置パネル」表示用：userPin 近傍のクラスターIDを算出（UMAP近傍）
@@ -2203,7 +2335,7 @@ function MapPage() {
     return false;
   }, []);
 
-  //////2026.04.以下の1セクション21行を上記を置き換え
+  //////2026.04.以下1セクション21行を上記を置き換え
   //---------------------------------------------------------------------------------
   // 更新ボタン（ボタンで呼ぶ手動更新）
   const runManualRefresh = useCallback(async () => {
@@ -2226,12 +2358,14 @@ function MapPage() {
     }
   }, [fetchPoints, fetchBoot, reloadAllowedJans, syncRatedPanel, applyServiceWorkerUpdateIfAny]);
 
-  //////2026.04.以下を上記1セクションと置き換え
+  //////2026.04.以下1セクションを置き換え
   // unmount時は進行中の fetch を止める
   useEffect(() => {
     return () => {
       try { pointsAbortRef.current?.abort?.(); } catch {}
       try { bootAbortRef.current?.abort?.(); } catch {}
+      //////2026.05.以下1行を追加
+      try { qrContextAbortRef.current?.abort?.(); } catch {}
     };
   }, []);  
 
@@ -2240,20 +2374,27 @@ function MapPage() {
   return (
     <div id="map-root" className="map-root" tabIndex={-1}>
       <MapCanvas
-        data={data}
-        //////2026.04.以下の1行を追加
-        basePoints={basePoints}
-        // 店舗集合（意味の集合）：信頼できる時だけ意味を持つ
-        storeJansSet={storeJansSet}
-        // 描画用の主集合    - 参照安定：毎回 new Set しない
+        //////data={data}
+        //////////2026.04.以下1行を追加
+        //////basePoints={basePoints}
+        //////// 店舗集合（意味の集合）：信頼できる時だけ意味を持つ
+        //////storeJansSet={storeJansSet}
+        //////// 描画用の主集合    - 参照安定：毎回 new Set しない
+        //////visibleJansSet={visibleJansSetForCanvas}
+        //////// EC専用JAN（星・色替え用）
+        //////ecOnlyJansSet={ecOnlyJansSet instanceof Set ? ecOnlyJansSet : new Set()}
+        //////// 表示許可集合（フェード/非表示制御）    - 空Setは未確定扱いで null（制限なし）へ寄せる
+        //////allowedJansSet={allowedJansSetForCanvas}
+        //////2026.05.以下6行と置き換え
+        data={qrVisiblePoints}
+        basePoints={[]}
+        storeJansSet={qrVisibleJansSet}
         visibleJansSet={visibleJansSetForCanvas}
-        // EC専用JAN（星・色替え用）
-        ecOnlyJansSet={ecOnlyJansSet instanceof Set ? ecOnlyJansSet : new Set()}
-        // 表示許可集合（フェード/非表示制御）    - 空Setは未確定扱いで null（制限なし）へ寄せる
+        ecOnlyJansSet={new Set()}
         allowedJansSet={allowedJansSetForCanvas}
         userRatings={userRatings}
         selectedJAN={selectedJAN}
-        //////2026.04.以下の1行を追加
+        //////2026.04.以下1行を追加
         highlightedJAN={highlightedJAN}
         wishJansSet={wishJansSet}
         wishVersion={wishVersion}
@@ -2263,7 +2404,7 @@ function MapPage() {
         viewState={viewState}
         setViewState={setViewState}
         onOpenSlider={() => navigate("/slider")}
-        //////2026.04.上記を以下の4行と置き換え（アクセスログ含む）
+        //////2026.04.以下4行と置き換え（アクセスログ含む）
         onPickWine={async (item) => {
           if (!item) return;
           await openWine(item, { source: "map" });
@@ -2273,6 +2414,31 @@ function MapPage() {
         edgeMarginYPx={400}
         basePoint={basePoint}
       />
+
+      {/* QR用メッセージ */}
+      {/*
+      {!qrContextLoading && qrVisiblePoints.length === 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.92)",
+            fontSize: 14,
+            color: "#555",
+            textAlign: "center",
+            padding: 24,
+            lineHeight: 1.8,
+          }}
+        >
+          QRコードからアクセスすると<br />
+          店舗または輸入元の商品マップが表示されます
+        </div>
+      )}
+      */}
     
       {/* 左上ボタン群: 指標セレクタ + クラスタ配色 */}
       <div
