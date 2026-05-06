@@ -2061,28 +2061,56 @@ function MapPage() {
   }, [routeJan, basePoints, data, focusOnWine]);
 
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
+//////  const findNearestWineWorld = useCallback(
+//////    (wx, wy) => {
+//////      //////2026.05.以下2行と置き換え
+////////////      if (!Array.isArray(data) || data.length === 0) return null;
+//////      const src = Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
+//////      if (src.length === 0) return null;
+//////      let best = null,
+//////        bestD2 = Infinity;
+////////////      const storeSetValid = storeJansSet && storeJansSet.size > 0;
+//////      //////2026.05.以下1行と置き換え        
+////////////      for (const d of data) {
+//////      for (const d of src) {
+//////        const jan = String(getJanFromItem(d));
+//////        // 店舗集合が信頼できるときだけ「店舗のみ」に絞る
+//////        // 不明なときは絞らない（= 店舗集合を捏造しない）
+////////////        if (storeSetValid && !storeJansSet.has(jan)) continue;
+//////
+//////        const x = d.umap_x,
+//////          y = -d.umap_y;
+//////        const dx = x - wx,
+//////          dy = y - wy;
+//////        const d2 = dx * dx + dy * dy;
+//////        if (d2 < bestD2) {
+//////          bestD2 = d2;
+//////          best = d;
+//////        }
+//////      }
+//////      return best;
+//////    },
+//////    //////2026.05.以下1行と置き換え
+////////////    [data, storeJansSet]
+//////    [qrVisiblePoints]
+//////  );
+  //////2026.05.以下1セクションと置き換え
   const findNearestWineWorld = useCallback(
     (wx, wy) => {
-      //////2026.05.以下2行と置き換え
-//////      if (!Array.isArray(data) || data.length === 0) return null;
       const src = Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
       if (src.length === 0) return null;
-      let best = null,
-        bestD2 = Infinity;
-//////      const storeSetValid = storeJansSet && storeJansSet.size > 0;
-      //////2026.05.以下1行と置き換え        
-//////      for (const d of data) {
-      for (const d of src) {
-        const jan = String(getJanFromItem(d));
-        // 店舗集合が信頼できるときだけ「店舗のみ」に絞る
-        // 不明なときは絞らない（= 店舗集合を捏造しない）
-//////        if (storeSetValid && !storeJansSet.has(jan)) continue;
 
-        const x = d.umap_x,
-          y = -d.umap_y;
-        const dx = x - wx,
-          dy = y - wy;
+      let best = null;
+      let bestD2 = Infinity;
+
+      for (const d of src) {
+        const x = d.umap_x;
+        const y = -d.umap_y;
+
+        const dx = x - wx;
+        const dy = y - wy;
         const d2 = dx * dx + dy * dy;
+
         if (d2 < bestD2) {
           bestD2 = d2;
           best = d;
@@ -2090,8 +2118,6 @@ function MapPage() {
       }
       return best;
     },
-    //////2026.05.以下1行と置き換え
-//////    [data, storeJansSet]
     [qrVisiblePoints]
   );
 
