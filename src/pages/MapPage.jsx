@@ -786,9 +786,9 @@ function MapPage() {
   const [productDrawerOpen, setProductDrawerOpen] = useState(false);
   const [iframeNonce, setIframeNonce] = useState(0);
   const [storeContextKey, setStoreContextKey] = useState(() => getStoreContextKeyFromStorage());
-  const [allowedJansSet, setAllowedJansSet] = useState(() => new Set());  
+//  const [allowedJansSet, setAllowedJansSet] = useState(() => new Set());  
   const [ecOnlyJansSet, setEcOnlyJansSet] = useState(() => new Set());
-  const [storeJansSet, setStoreJansSet] = useState(() => new Set());
+//  const [storeJansSet, setStoreJansSet] = useState(() => new Set());
   const [cartEnabled, setCartEnabled] = useState(false);
   const [wishJansSet, setWishJansSet] = useState(() => new Set());
   const [wishVersion, setWishVersion] = useState(0);
@@ -949,27 +949,28 @@ function MapPage() {
     );
   }, [qrVisiblePoints]);
 
-  //---------------------------------------------------------------------------------
-  // ---- JanSet（ visibleJanSet, allJanSet ）----
-  // --- 描画用の主集合（visible）---
-  // allowedJansSet があるならそれを優先 - 無いなら「全打点OK」（表示フォールバック）- storeJansSet（店舗集合）とは混ぜない
-  const visibleJansSet = useMemo(() => {
-    // allowed が「未確定（空）」の瞬間は 0点にしない（全点フォールバック）- allowed が確定（size>0）したらそれを採用
-    if (allowedJansSet instanceof Set && allowedJansSet.size > 0) {
-      return allowedJansSet;
-    }
-    return null;        // null = 全点フォールバック扱い
-  }, [allowedJansSet]);
-
-  //////2026.04.以下1セクションを置き換え
-  // --- 全点フォールバック用 ---
-  // base層（points ∩ active_jans）を “表示してよい全打点” とする
-  const allJansSet = useMemo(() => {
-    const list = Array.isArray(basePoints) ? basePoints : [];
-    return new Set(
-      list.map((d) => String(getJanFromItem(d))).filter(Boolean)
-    );
-  }, [basePoints]);
+//////2026.05.以下を削除
+//////  //---------------------------------------------------------------------------------
+//////  // ---- JanSet（ visibleJanSet, allJanSet ）----
+//////  // --- 描画用の主集合（visible）---
+//////  // allowedJansSet があるならそれを優先 - 無いなら「全打点OK」（表示フォールバック）- storeJansSet（店舗集合）とは混ぜない
+//////  const visibleJansSet = useMemo(() => {
+//////    // allowed が「未確定（空）」の瞬間は 0点にしない（全点フォールバック）- allowed が確定（size>0）したらそれを採用
+//////    if (allowedJansSet instanceof Set && allowedJansSet.size > 0) {
+//////      return allowedJansSet;
+//////    }
+//////    return null;        // null = 全点フォールバック扱い
+//////  }, [allowedJansSet]);
+//////
+//////  //////2026.04.以下1セクションを置き換え
+//////  // --- 全点フォールバック用 ---
+//////  // base層（points ∩ active_jans）を “表示してよい全打点” とする
+//////  const allJansSet = useMemo(() => {
+//////    const list = Array.isArray(basePoints) ? basePoints : [];
+//////    return new Set(
+//////      list.map((d) => String(getJanFromItem(d))).filter(Boolean)
+//////    );
+//////  }, [basePoints]);
 
   // --- MapCanvas に渡す “見える集合” を確定（参照安定）---
   //////2026.05.以下の行を置き換え
@@ -1205,7 +1206,7 @@ function MapPage() {
       console.log("[cartEnabled]", { mainStoreId, hasToken, apiEc, mainStoreEcActive, fromLS, ecEnabledInContext });
 
       // 常に Set（null禁止）
-      if (Array.isArray(allowedJans)) setAllowedJansSet(new Set(allowedJans.map(String)));
+//////      if (Array.isArray(allowedJans)) setAllowedJansSet(new Set(allowedJans.map(String)));
       if (Array.isArray(ecOnlyJans)) setEcOnlyJansSet(new Set(ecOnlyJans.map(String)));
       // wish: API結果 + ローカル即時反映（SET_WISHLIST）を merge（上書き事故防止）
       if (Array.isArray(wishJans)) {
@@ -1228,7 +1229,7 @@ function MapPage() {
         setWishJansSet((prev) => (prev instanceof Set ? prev : new Set()));
         setWishVersion((v) => v + 1);
       }
-      setStoreJansSet(new Set(storeJans || []));
+//////      setStoreJansSet(new Set(storeJans || []));
 
       // ✅ 成功したらスナップショット保存（ログアウト後も維持）
       writeAllowedSnapshot({ allowedJans, ecOnlyJans, storeJans, mainStoreEcActive, ecEnabledInContext, wishJans });
@@ -1243,9 +1244,9 @@ function MapPage() {
 
       // ✅ snap.allowedJans は「配列 & 非空」のときだけ採用（空Setを作らない）
       if (Array.isArray(snap?.allowedJans) && snap.allowedJans.length > 0) {
-        setAllowedJansSet(new Set(snap.allowedJans));
+//////        setAllowedJansSet(new Set(snap.allowedJans));
         setEcOnlyJansSet(new Set((snap.ecOnlyJans || []).map(String)));
-        setStoreJansSet(new Set(snap.storeJans || []));
+//////        setStoreJansSet(new Set(snap.storeJans || []));
         // snapshot復元 + override を merge（復元も戻されないように）
         const snapSet = new Set((snap.wishJans || []).map(String));
         const next = new Set(snapSet);
@@ -1263,9 +1264,9 @@ function MapPage() {
       }
 
       // ✅ 初回で何も無いなら Set は prev維持（=揺れ防止）
-      setAllowedJansSet((prev) => (prev instanceof Set ? prev : new Set()));
+//////      setAllowedJansSet((prev) => (prev instanceof Set ? prev : new Set()));
       setEcOnlyJansSet((prev) => (prev instanceof Set ? prev : new Set()));
-      setStoreJansSet(new Set());
+//////      setStoreJansSet(new Set());
       setCartEnabled((prev) => prev); // ここで false に落とさない
     }
   }, []);
@@ -2068,14 +2069,14 @@ function MapPage() {
       if (src.length === 0) return null;
       let best = null,
         bestD2 = Infinity;
-      const storeSetValid = storeJansSet && storeJansSet.size > 0;
+//////      const storeSetValid = storeJansSet && storeJansSet.size > 0;
       //////2026.05.以下1行と置き換え        
 //////      for (const d of data) {
       for (const d of src) {
         const jan = String(getJanFromItem(d));
         // 店舗集合が信頼できるときだけ「店舗のみ」に絞る
         // 不明なときは絞らない（= 店舗集合を捏造しない）
-        if (storeSetValid && !storeJansSet.has(jan)) continue;
+//////        if (storeSetValid && !storeJansSet.has(jan)) continue;
 
         const x = d.umap_x,
           y = -d.umap_y;
@@ -2390,7 +2391,7 @@ function MapPage() {
         basePoints={[]}
         storeJansSet={qrVisibleJansSet}
         visibleJansSet={visibleJansSetForCanvas}
-        ecOnlyJansSet={new Set()}
+        ecOnlyJansSet={ecOnlyJansSet instanceof Set ? ecOnlyJansSet : new Set()}
         allowedJansSet={allowedJansSetForCanvas}
         userRatings={userRatings}
         selectedJAN={selectedJAN}
@@ -2416,8 +2417,7 @@ function MapPage() {
       />
 
       {/* QR用メッセージ */}
-      {/*
-      {!qrContextLoading && qrVisiblePoints.length === 0 && (
+      {!qrContextLoading && !qrContext && qrVisiblePoints.length === 0 && (
         <div
           style={{
             position: "absolute",
@@ -2438,7 +2438,6 @@ function MapPage() {
           店舗または輸入元の商品マップが表示されます
         </div>
       )}
-      */}
     
       {/* 左上ボタン群: 指標セレクタ + クラスタ配色 */}
       <div
