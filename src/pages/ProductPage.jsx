@@ -14,7 +14,9 @@ import {
   clusterRGBAtoCSS,
   toJapaneseWineType,
   TASTEMAP_POINTS_URL,
+  getReferenceLotById,
 } from "../ui/constants";
+import { getLotId } from "../utils/lot";
 
 const API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || "";
 const PUBLIC_BASE = process.env.PUBLIC_URL || "";
@@ -114,6 +116,29 @@ const centerGradient = (val) => {
   const a = Math.min(50, v);
   const b = Math.max(50, v);
   return `linear-gradient(to right, ${base} 0%, ${base} ${a}%, ${active} ${a}%, ${active} ${b}%, ${base} ${b}%, ${base} 100%)`;
+};
+
+const pcToSliderCenter = (pc, min, base, max) => {
+  if (
+    !Number.isFinite(pc) ||
+    !Number.isFinite(min) ||
+    !Number.isFinite(base) ||
+    !Number.isFinite(max)
+  ) {
+    return 50;
+  }
+
+  if (pc <= base) {
+    const denom = base - min;
+    if (denom <= 0) return 50;
+    const t = (pc - min) / denom;
+    return Math.max(0, Math.min(50, t * 50));
+  }
+
+  const denom = max - base;
+  if (denom <= 0) return 50;
+  const t = (pc - base) / denom;
+  return Math.max(50, Math.min(100, 50 + t * 50));
 };
 
 const sliderToPCCenter = (sliderVal, min, base, max) => {
@@ -481,6 +506,7 @@ export default function ProductPage() {
   const [sliderRows, setSliderRows] = useState([]);
   const [sliderPcMinMax, setSliderPcMinMax] = useState(null);
   const [productPoint, setProductPoint] = useState(null);
+  const [referenceLot, setReferenceLot] = useState(null);
   const [tasteAcidity, setTasteAcidity] = useState(50);     // PC3
   const [tasteSweetness, setTasteSweetness] = useState(50); // PC2
   const [tasteBody, setTasteBody] = useState(50);           // PC1
@@ -545,6 +571,13 @@ export default function ProductPage() {
     };
   }, []);
   // ここまで 再fetch 2026.01.
+
+  //////2026.05.以下1セクション追加
+  useEffect(() => {
+    const lotId = getLotId();
+    const lot = getReferenceLotById(lotId);
+    setReferenceLot(lot || null);
+  }, []);
   
   // CartContext（ローカル積み → カートで同期）
   const [adding, setAdding] = useState(false);
@@ -774,28 +807,52 @@ export default function ProductPage() {
           const pc1s = cleaned.map((r) => r.PC1);
           const pc2s = cleaned.map((r) => r.PC2);
           const pc3s = cleaned.map((r) => r.PC3);
-          setSliderPcMinMax({
+
+          const nextMinMax = {
             minPC1: Math.min(...pc1s),
             maxPC1: Math.max(...pc1s),
             minPC2: Math.min(...pc2s),
             maxPC2: Math.max(...pc2s),
             minPC3: Math.min(...pc3s),
             maxPC3: Math.max(...pc3s),
-          });
+          };
+
+          setSliderPcMinMax(nextMinMax);
+
+          const refPC1 = num(referenceLot?.pc1);
+          const refPC2 = num(referenceLot?.pc2);
+          const refPC3 = num(referenceLot?.pc3);
+
+          if (hit && referenceLot) {
+            setTasteBody(
+              pcToSliderCenter(hit.PC1, nextMinMax.minPC1, refPC1, nextMinMax.maxPC1)
+            );
+            setTasteSweetness(
+              pcToSliderCenter(hit.PC2, nextMinMax.minPC2, refPC2, nextMinMax.maxPC2)
+            );
+            setTasteAcidity(
+              pcToSliderCenter(hit.PC3, nextMinMax.minPC3, refPC3, nextMinMax.maxPC3)
+            );
+          } else {
+            setTasteBody(50);
+            setTasteSweetness(50);
+            setTasteAcidity(50);
+          }
         } else {
           setSliderPcMinMax(null);
+          setTasteBody(50);
+          setTasteSweetness(50);
+          setTasteAcidity(50);
         }
-
-        // 商品自身の値を中心にするため、表示初期値は50固定
-        setTasteBody(50);
-        setTasteSweetness(50);
-        setTasteAcidity(50);
       } catch (e) {
         if (!cancelled) {
           console.error("ProductPage: 商品詳細スライダー用データ取得失敗:", e);
           setSliderRows([]);
           setProductPoint(null);
           setSliderPcMinMax(null);
+          setTasteBody(50);
+          setTasteSweetness(50);
+          setTasteAcidity(50);
         }
       }
     })();
@@ -803,7 +860,7 @@ export default function ProductPage() {
     return () => {
       cancelled = true;
     };
-  }, [jan_code]);
+  }, [jan_code, referenceLot]);
 
   // 評価の同期（STATE_SNAPSHOT / SET_RATING）は従来通り
   useEffect(() => {
@@ -1018,6 +1075,7 @@ export default function ProductPage() {
   //////2026.05.以下1セクションを追加
   const canUseProductSlider =
     !!productPoint &&
+    !!referenceLot &&
     !!sliderPcMinMax &&
     Array.isArray(sliderRows) &&
     sliderRows.length > 0;
@@ -1034,9 +1092,9 @@ export default function ProductPage() {
       maxPC3,
     } = sliderPcMinMax;
 
-    const basePC1 = Number(productPoint.PC1);
-    const basePC2 = Number(productPoint.PC2);
-    const basePC3 = Number(productPoint.PC3);
+    const basePC1 = num(referenceLot?.pc1);
+    const basePC2 = num(referenceLot?.pc2);
+    const basePC3 = num(referenceLot?.pc3);
 
     const pc1Value = sliderToPCCenter(tasteBody, minPC1, basePC1, maxPC1);
     const pc2Value = sliderToPCCenter(tasteSweetness, minPC2, basePC2, maxPC2);
@@ -1069,14 +1127,24 @@ export default function ProductPage() {
       sessionStorage.setItem("tm_center_on_userpin", "1");
     } catch {}
 
-    navigate("/map?open=position", {
-      state: {
-        centerOnUserPin: true,
-        fromProductSlider: true,
-        baseJan: jan_code,
-        nearestJan: nearest.JAN,
-      },
+    postToParent({
+      type: "PRODUCT_SLIDER_GENERATED",
+      jan: jan_code,
+      nearestJan: nearest.JAN,
+      centerOnUserPin: true,
     });
+
+    try {
+      const bc = new BroadcastChannel("product_bridge");
+      bc.postMessage({
+        type: "PRODUCT_SLIDER_GENERATED",
+        jan: jan_code,
+        nearestJan: nearest.JAN,
+        centerOnUserPin: true,
+        at: Date.now(),
+      });
+      bc.close();
+    } catch {}
   };
   //---------------------------------------------------------------
 
