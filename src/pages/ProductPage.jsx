@@ -1,7 +1,8 @@
 // src/pages/ProductPage.jsx
 // 商品詳細画面
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+//////import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { useSimpleCart } from "../cart/simpleCart";
 import { postRating } from "../lib/appRatings";
 import {
@@ -496,7 +497,7 @@ function ProductInfoSection({ product, jan_code }) {
  * ========================= */
 export default function ProductPage() {
   const jan_code = useJanParam();
-  const navigate = useNavigate();
+//////  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
