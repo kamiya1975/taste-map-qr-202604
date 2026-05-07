@@ -1,7 +1,7 @@
 // src/pages/ProductPage.jsx
 // 商品詳細画面
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useSimpleCart } from "../cart/simpleCart";
 import { postRating } from "../lib/appRatings";
 import {
@@ -91,10 +91,65 @@ const notifyParentClosed = (jan_code) => {
   } catch {}
 };
 
+//////2026.05.以下1セクション追加
+//---------------------------------------------------------------------------------
+// スライダー追加
+const num = (v, def = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+};
+
+const dist2_3d = (x1, y1, z1, x2, y2, z2) => {
+  const dx = x1 - x2;
+  const dy = y1 - y2;
+  const dz = z1 - z2;
+  return dx * dx + dy * dy + dz * dz;
+};
+
+const centerGradient = (val) => {
+  const base = "#e9e9e9";
+  const active = "#b59678";
+  const v = Math.max(0, Math.min(100, Number(val)));
+  if (v === 50) return base;
+  const a = Math.min(50, v);
+  const b = Math.max(50, v);
+  return `linear-gradient(to right, ${base} 0%, ${base} ${a}%, ${active} ${a}%, ${active} ${b}%, ${base} ${b}%, ${base} 100%)`;
+};
+
+const sliderToPCCenter = (sliderVal, min, base, max) => {
+  const v = Math.max(0, Math.min(100, Number(sliderVal)));
+  if (!Number.isFinite(min) || !Number.isFinite(base) || !Number.isFinite(max)) {
+    return base || 0;
+  }
+
+  if (v <= 50) {
+    if (base <= min) return base;
+    return min + (base - min) * (v / 50);
+  }
+
+  if (max <= base) return base;
+  return base + (max - base) * ((v - 50) / 50);
+};
+
+const findNearestWineByPC = (rows, px, py, pz) => {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  let best = null;
+  let bestD2 = Infinity;
+
+  for (const d of rows) {
+    const d2 = dist2_3d(px, py, pz, d.PC1, d.PC2, d.PC3);
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = d;
+    }
+  }
+  return best;
+};
+//---------------------------------------------------------------------------------
+
 /** =========================
  *  飲みたい（☆/★）
  * ========================= */
-//function HeartButton({ jan_code, value, onChange, size = 28, hidden = false, ctx = "" }) {
 function HeartButton({ jan_code, value, onChange, size = 28, hidden = false, ctx: ctxProp = "" }) {
   const fav = !!value;
   const [busy, setBusy] = React.useState(false);
@@ -416,11 +471,19 @@ function ProductInfoSection({ product, jan_code }) {
  * ========================= */
 export default function ProductPage() {
   const jan_code = useJanParam();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [wish, setWish] = useState(false);
   const [clusterId, setClusterId] = useState(null);
+
+  const [sliderRows, setSliderRows] = useState([]);
+  const [sliderPcMinMax, setSliderPcMinMax] = useState(null);
+  const [productPoint, setProductPoint] = useState(null);
+  const [tasteAcidity, setTasteAcidity] = useState(50);     // PC3
+  const [tasteSweetness, setTasteSweetness] = useState(50); // PC2
+  const [tasteBody, setTasteBody] = useState(50);           // PC1
 
   const { search, hash } = useLocation();
   // MapPage が iframe src に付与している ctx を受け取る（店舗コンテキスト混入対策）
@@ -668,6 +731,80 @@ export default function ProductPage() {
     };
   }, [jan_code]);
 
+  //////2026.05.以下1セクション追加
+  // 商品詳細スライダー用：points JSON から PC/UMAP を取得
+  useEffect(() => {
+    if (!jan_code) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(TASTEMAP_POINTS_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const json = await res.json();
+        if (cancelled) return;
+
+        const cleaned = (json || [])
+          .map((d) => ({
+            JAN: String(d.jan_code ?? d.JAN ?? ""),
+            PC1: num(d.pc1 ?? d.PC1),
+            PC2: num(d.pc2 ?? d.PC2),
+            PC3: num(d.pc3 ?? d.PC3),
+            UMAP1: num(d.umap_x ?? d.UMAP1),
+            UMAP2: num(d.umap_y ?? d.UMAP2),
+          }))
+          .filter(
+            (r) =>
+              r.JAN &&
+              Number.isFinite(r.PC1) &&
+              Number.isFinite(r.PC2) &&
+              Number.isFinite(r.PC3) &&
+              Number.isFinite(r.UMAP1) &&
+              Number.isFinite(r.UMAP2)
+          );
+
+        const hit = cleaned.find((r) => String(r.JAN) === String(jan_code));
+
+        setSliderRows(cleaned);
+        setProductPoint(hit || null);
+
+        if (cleaned.length) {
+          const pc1s = cleaned.map((r) => r.PC1);
+          const pc2s = cleaned.map((r) => r.PC2);
+          const pc3s = cleaned.map((r) => r.PC3);
+          setSliderPcMinMax({
+            minPC1: Math.min(...pc1s),
+            maxPC1: Math.max(...pc1s),
+            minPC2: Math.min(...pc2s),
+            maxPC2: Math.max(...pc2s),
+            minPC3: Math.min(...pc3s),
+            maxPC3: Math.max(...pc3s),
+          });
+        } else {
+          setSliderPcMinMax(null);
+        }
+
+        // 商品自身の値を中心にするため、表示初期値は50固定
+        setTasteBody(50);
+        setTasteSweetness(50);
+        setTasteAcidity(50);
+      } catch (e) {
+        if (!cancelled) {
+          console.error("ProductPage: 商品詳細スライダー用データ取得失敗:", e);
+          setSliderRows([]);
+          setProductPoint(null);
+          setSliderPcMinMax(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jan_code]);
+
   // 評価の同期（STATE_SNAPSHOT / SET_RATING）は従来通り
   useEffect(() => {
     const onMsgSnapshot = (e) => {
@@ -877,6 +1014,71 @@ export default function ProductPage() {
       setAdding(false);
     }
   };
+
+  //////2026.05.以下1セクションを追加
+  const canUseProductSlider =
+    !!productPoint &&
+    !!sliderPcMinMax &&
+    Array.isArray(sliderRows) &&
+    sliderRows.length > 0;
+
+  const handleProductSliderGenerate = () => {
+    if (!canUseProductSlider) return;
+
+    const {
+      minPC1,
+      maxPC1,
+      minPC2,
+      maxPC2,
+      minPC3,
+      maxPC3,
+    } = sliderPcMinMax;
+
+    const basePC1 = Number(productPoint.PC1);
+    const basePC2 = Number(productPoint.PC2);
+    const basePC3 = Number(productPoint.PC3);
+
+    const pc1Value = sliderToPCCenter(tasteBody, minPC1, basePC1, maxPC1);
+    const pc2Value = sliderToPCCenter(tasteSweetness, minPC2, basePC2, maxPC2);
+    const pc3Value = sliderToPCCenter(tasteAcidity, minPC3, basePC3, maxPC3);
+
+    const nearest =
+      tasteBody === 50 && tasteSweetness === 50 && tasteAcidity === 50
+        ? productPoint
+        : findNearestWineByPC(sliderRows, pc1Value, pc2Value, pc3Value);
+
+    if (!nearest) return;
+
+    localStorage.setItem(
+      "userPinCoords",
+      JSON.stringify({
+        coordsUMAP: [nearest.UMAP1, nearest.UMAP2],
+        version: 4,
+        source: "product_slider",
+        baseJan: jan_code,
+        pcValues: {
+          pc1: pc1Value,
+          pc2: pc2Value,
+          pc3: pc3Value,
+        },
+        nearestJan: nearest.JAN,
+      })
+    );
+
+    try {
+      sessionStorage.setItem("tm_center_on_userpin", "1");
+    } catch {}
+
+    navigate("/map?open=position", {
+      state: {
+        centerOnUserPin: true,
+        fromProductSlider: true,
+        baseJan: jan_code,
+        nearestJan: nearest.JAN,
+      },
+    });
+  };
+  //---------------------------------------------------------------
 
   if (loading && !product) {
     return <div style={{ padding: 16 }}>読み込み中です…</div>;
@@ -1121,6 +1323,105 @@ export default function ProductPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 商品詳細スライダー */}
+      <div
+        style={{
+          marginTop: 18,
+          paddingTop: 14,
+          paddingBottom: 16,
+          borderBottom: "1px solid #ccc",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            marginBottom: 12,
+          }}
+        >
+          このワインを基準に好みを調整
+        </div>
+
+        <style>{`
+          .product-taste-slider{ appearance:none; -webkit-appearance:none; width:100%; height:6px; background:transparent; margin-top:6px; outline:none; }
+          .product-taste-slider::-webkit-slider-runnable-track{ height:6px; border-radius:9999px; background:var(--range,#e9e9e9); }
+          .product-taste-slider::-moz-range-track{ height:6px; border-radius:9999px; background:var(--range,#e9e9e9); }
+          .product-taste-slider::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#262626; border:0; box-shadow:0 1px 2px rgba(0,0,0,.25); margin-top:-8px; cursor:pointer; }
+          .product-taste-slider::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#262626; border:0; box-shadow:0 1px 2px rgba(0,0,0,.25); cursor:pointer; }
+        `}</style>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+            <span>← 酸味は控えめが良い</span>
+            <span>もっと酸味が欲しい →</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={tasteAcidity}
+            onChange={(e) => setTasteAcidity(Number(e.target.value))}
+            className="product-taste-slider"
+            style={{ "--range": centerGradient(tasteAcidity) }}
+            disabled={!canUseProductSlider}
+          />
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+            <span>← こんなに甘味は不要</span>
+            <span>もっと甘みが欲しい →</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={tasteSweetness}
+            onChange={(e) => setTasteSweetness(Number(e.target.value))}
+            className="product-taste-slider"
+            style={{ "--range": centerGradient(tasteSweetness) }}
+            disabled={!canUseProductSlider}
+          />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+            <span>← もっと軽やかが良い</span>
+            <span>濃厚なコクが欲しい →</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={tasteBody}
+            onChange={(e) => setTasteBody(Number(e.target.value))}
+            className="product-taste-slider"
+            style={{ "--range": centerGradient(tasteBody) }}
+            disabled={!canUseProductSlider}
+          />
+        </div>
+
+        <button
+          onClick={handleProductSliderGenerate}
+          disabled={!canUseProductSlider}
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            background: "rgb(230,227,219)",
+            color: "#000",
+            border: "none",
+            borderRadius: 10,
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: canUseProductSlider ? "pointer" : "default",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+            opacity: canUseProductSlider ? 1 : 0.6,
+          }}
+        >
+          この調整でMAPにピンを打つ
+        </button>
       </div>
 
       {/* 説明＋基本情報 */}
