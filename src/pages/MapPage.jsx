@@ -2174,9 +2174,37 @@ function MapPage() {
       // 強調対象は「開いた商品」に合わせる
       setHighlightedJAN(janStr);
 
+      //////2026.05.以下1セクションと置き換え
+//////      if (isProductsRoute) {
+//////        //////2026.05.以下を12行と置き換え
+////////////        const nextSearch = buildSearchWithoutQrSrc(location.search);
+//////        const currentSearch = buildSearchWithoutQrSrc(location.search);
+//////        const params = new URLSearchParams(currentSearch);
+//////
+//////        if (qrContext?.mode === "store" && qrContext?.store_id) {
+//////          params.set("store_id", String(qrContext.store_id));
+//////        }
+//////
+//////        if (qrContext?.mode === "importer" && qrContext?.importer_id) {
+//////          params.set("importer_id", String(qrContext.importer_id));
+//////        }
+//////
+//////        const nextSearch = params.toString() ? `?${params.toString()}` : "";
+//////
+//////        navigate(
+//////          {
+//////            pathname: `/products/${encodeURIComponent(janStr)}`,
+//////            search: nextSearch,
+//////          },
+//////          { replace: false }
+//////        );
+//////
+//////        if (item) {
+//////          focusOnWine(item, { zoom: opts.zoom });
+//////        }
+//////        return;
+//////      }
       if (isProductsRoute) {
-        //////2026.05.以下を12行と置き換え
-//////        const nextSearch = buildSearchWithoutQrSrc(location.search);
         const currentSearch = buildSearchWithoutQrSrc(location.search);
         const params = new URLSearchParams(currentSearch);
 
@@ -2189,6 +2217,11 @@ function MapPage() {
         }
 
         const nextSearch = params.toString() ? `?${params.toString()}` : "";
+
+        // ★ /productsルートでもDrawerを必ず開き直す
+        setSelectedJAN(janStr);
+        setIframeNonce(Date.now());
+        setProductDrawerOpen(true);
 
         navigate(
           {
