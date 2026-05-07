@@ -1079,8 +1079,8 @@ function MapPage() {
     if (!selectedJAN) return "";
     const base = process.env.PUBLIC_URL || "";
     const jan = encodeURIComponent(String(selectedJAN));
-    const ctx = encodeURIComponent(String(storeContextKey || ""));
-    const nonce = encodeURIComponent(String(iframeNonce || 0));
+//////    const ctx = encodeURIComponent(String(storeContextKey || ""));
+//////    const nonce = encodeURIComponent(String(iframeNonce || 0));
 //////2026.05.以下を置き換え
 //////    // HashRouter 前提： /#/product-frame/:jan
 //////    return `${base}/#/product-frame/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
