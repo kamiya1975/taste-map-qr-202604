@@ -94,6 +94,69 @@ const getStoreContextKeyFromStorage = () => {
   ].join("|");
 };
 
+//////2026.05.以下1セクション追加
+//---------------------------------------------------------------------------------
+// QR文脈保存（QR専用）
+// - 既存の main_store / selectedStore / app.main_store_id とは混ぜない
+// - /#/slider → /#/map のようにURLから store_id/importer_id が消えても復元する
+const QR_CONTEXT_KEY = "tm_qr_context_v1";
+
+function readQrContextSnapshot() {
+  try {
+    const raw = sessionStorage.getItem(QR_CONTEXT_KEY);
+    if (!raw) return null;
+
+    const s = JSON.parse(raw);
+    const mode = s?.mode === "store" || s?.mode === "importer" ? s.mode : null;
+    if (!mode) return null;
+
+    const storeId = Number(s?.store_id);
+    const importerId = Number(s?.importer_id);
+
+    if (mode === "store") {
+      if (!Number.isFinite(storeId) || storeId <= 0) return null;
+      return {
+        mode: "store",
+        store_id: storeId,
+        importer_id: null,
+        context_name: s?.context_name || "",
+        saved_at: s?.saved_at || null,
+      };
+    }
+
+    if (mode === "importer") {
+      if (!Number.isFinite(importerId) || importerId <= 0) return null;
+      return {
+        mode: "importer",
+        store_id: null,
+        importer_id: importerId,
+        context_name: s?.context_name || "",
+        saved_at: s?.saved_at || null,
+      };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeQrContextSnapshot(ctx) {
+  try {
+    if (!ctx || (ctx.mode !== "store" && ctx.mode !== "importer")) return;
+
+    const snap = {
+      mode: ctx.mode,
+      store_id: ctx.mode === "store" ? Number(ctx.store_id) : null,
+      importer_id: ctx.mode === "importer" ? Number(ctx.importer_id) : null,
+      context_name: ctx.context_name || "",
+      saved_at: new Date().toISOString(),
+    };
+
+    sessionStorage.setItem(QR_CONTEXT_KEY, JSON.stringify(snap));
+  } catch {}
+}
+
 //---------------------------------------------------------------------------------
 // スナップショット2
 // ALLOWED_SNAPSHOT =どれを描くか　（どの点を表示していいか ＋ EC可否 の保存版）対象：MapPage
@@ -803,40 +866,41 @@ function MapPage() {
   const wishOverrideRef = useRef(new Map()); // jan -> { value:boolean, at:number }
   const lastWishLocalAtRef = useRef(0);
 
-  //////2026.04.以下の1セクションすべてを追加
-  //---------------------------------------------------------------------------------
-  // QR流入: store_id があれば main_store_id 未設定時のみ保存
-  // - 既存値は上書きしない
-  // - 保存できたら storeContextKey を同期して allowed-jans 再取得の流れに乗せる
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(location.search);
-      const raw = params.get("store_id");
-      if (!raw) return;
-
-      const sid = Number(raw);
-      if (!Number.isFinite(sid) || sid <= 0) return;
-
-      const existing = getCurrentMainStoreIdSafe();
-      if (existing) return;
-
-      localStorage.setItem("main_store", String(sid));
-
-      // selectedStore が未設定なら最低限 main_store_id として読めるようにする
-      // （StorePanel 側の詳細オブジェクトはここでは作らない）
-      try {
-        const selectedStoreRaw = localStorage.getItem("selectedStore");
-        if (!selectedStoreRaw) {
-          localStorage.setItem("selectedStore", JSON.stringify({ store_id: sid }));
-        }
-      } catch {}
-
-      const nextKey = getStoreContextKeyFromStorage();
-      setStoreContextKey(nextKey);
-    } catch (e) {
-      console.warn("QR store_id save failed:", e);
-    }
-  }, [location.search]);  
+//////2026.05.以下削除
+//////  //////2026.04.以下の1セクションすべてを追加
+//////  //---------------------------------------------------------------------------------
+//////  // QR流入: store_id があれば main_store_id 未設定時のみ保存
+//////  // - 既存値は上書きしない
+//////  // - 保存できたら storeContextKey を同期して allowed-jans 再取得の流れに乗せる
+//////  useEffect(() => {
+//////    try {
+//////      const params = new URLSearchParams(location.search);
+//////      const raw = params.get("store_id");
+//////      if (!raw) return;
+//////
+//////      const sid = Number(raw);
+//////      if (!Number.isFinite(sid) || sid <= 0) return;
+//////
+//////      const existing = getCurrentMainStoreIdSafe();
+//////      if (existing) return;
+//////
+//////      localStorage.setItem("main_store", String(sid));
+//////
+//////      // selectedStore が未設定なら最低限 main_store_id として読めるようにする
+//////      // （StorePanel 側の詳細オブジェクトはここでは作らない）
+//////      try {
+//////        const selectedStoreRaw = localStorage.getItem("selectedStore");
+//////        if (!selectedStoreRaw) {
+//////          localStorage.setItem("selectedStore", JSON.stringify({ store_id: sid }));
+//////        }
+//////      } catch {}
+//////
+//////      const nextKey = getStoreContextKeyFromStorage();
+//////      setStoreContextKey(nextKey);
+//////    } catch (e) {
+//////      console.warn("QR store_id save failed:", e);
+//////    }
+//////  }, [location.search]);  
 
   //////2026.04.以下の1セクション35行を追加（アクセスログ）
   //---------------------------------------------------------------------------------
@@ -897,21 +961,22 @@ function MapPage() {
     };
   }, []);
 
-  //---------------------------------------------------------------------------------
-  // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
-  // - 「MapPage前に必ずStore選択」の旧仕様に戻す
-  useEffect(() => {
-    let token = "";
-    try { token = localStorage.getItem("app.access_token") || ""; } catch {}
-    if (token) return; // ログイン済みは /allowed-jans/auto で復元できるので許容
-
-    let main = null;
-    try { main = getCurrentMainStoreIdSafe(); } catch {}
-    if (!main) {
-      // mainStoreId が無い＝表示すべき打点が決められないので StorePage へ戻す
-      navigate("/store", { replace: true });
-    }
-  }, [navigate]);
+//////2026.05.以下削除  
+//////  //---------------------------------------------------------------------------------
+//////  // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
+//////  // - 「MapPage前に必ずStore選択」の旧仕様に戻す
+//////  useEffect(() => {
+//////    let token = "";
+//////    try { token = localStorage.getItem("app.access_token") || ""; } catch {}
+//////    if (token) return; // ログイン済みは /allowed-jans/auto で復元できるので許容
+//////
+//////    let main = null;
+//////    try { main = getCurrentMainStoreIdSafe(); } catch {}
+//////    if (!main) {
+//////      // mainStoreId が無い＝表示すべき打点が決められないので StorePage へ戻す
+//////      navigate("/store", { replace: true });
+//////    }
+//////  }, [navigate]);
 
   //////2026.04.以下1セクションを追加
   //---------------------------------------------------------------------------------
@@ -1016,9 +1081,23 @@ function MapPage() {
     const jan = encodeURIComponent(String(selectedJAN));
     const ctx = encodeURIComponent(String(storeContextKey || ""));
     const nonce = encodeURIComponent(String(iframeNonce || 0));
-    // HashRouter 前提： /#/product-frame/:jan
-    return `${base}/#/product-frame/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
-  }, [selectedJAN, storeContextKey, iframeNonce]);  
+//////2026.05.以下を置き換え
+//////    // HashRouter 前提： /#/product-frame/:jan
+//////    return `${base}/#/product-frame/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
+//////  }, [selectedJAN, storeContextKey, iframeNonce]);
+    const params = new URLSearchParams();
+    params.set("embed", "1");
+    params.set("ctx", String(storeContextKey || ""));
+    params.set("_", String(iframeNonce || 0));
+
+    if (qrContext?.mode === "store" && qrContext?.store_id) {
+      params.set("store_id", String(qrContext.store_id));
+    }
+    if (qrContext?.mode === "importer" && qrContext?.importer_id) {
+      params.set("importer_id", String(qrContext.importer_id));
+    }
+    return `${base}/#/product-frame/${jan}?${params.toString()}`;
+  }, [selectedJAN, storeContextKey, iframeNonce, qrContext]);
 
   //---------------------------------------------------------------------------------
   // 更新ボタン用 （打点JSON, バックグラウンド の更新反映のため）
@@ -1096,12 +1175,40 @@ function MapPage() {
     }
   }, []);
 
-  //////2026.05.以下1セクションすべてを追加
+  //////2026.05.以下1セクションを置き換え
+//////  //////2026.05.以下1セクションすべてを追加
+//////  //---------------------------------------------------------------------------------
+//////  // QR文脈取得
+//////  const getQrParamsFromSearch = useCallback(() => {
+//////    try {
+//////      const params = new URLSearchParams(location.search);
+//////
+//////      const rawStoreId = params.get("store_id");
+//////      const rawImporterId = params.get("importer_id");
+//////
+//////      const storeId = rawStoreId ? Number(rawStoreId) : null;
+//////      const importerId = rawImporterId ? Number(rawImporterId) : null;
+//////
+//////      return {
+//////        storeId: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
+//////        importerId: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+//////      };
+//////    } catch {
+//////      return { storeId: null, importerId: null };
+//////    }
+//////  }, [location.search]);
   //---------------------------------------------------------------------------------
   // QR文脈取得
   const getQrParamsFromSearch = useCallback(() => {
     try {
-      const params = new URLSearchParams(location.search);
+      // HashRouterでは location.search が空になる場面があるため、hash側も見る
+      const searchText =
+        location.search ||
+        (window.location.hash.includes("?")
+          ? `?${window.location.hash.split("?")[1]}`
+          : window.location.search || "");
+
+      const params = new URLSearchParams(searchText);
 
       const rawStoreId = params.get("store_id");
       const rawImporterId = params.get("importer_id");
@@ -1109,17 +1216,70 @@ function MapPage() {
       const storeId = rawStoreId ? Number(rawStoreId) : null;
       const importerId = rawImporterId ? Number(rawImporterId) : null;
 
+      if (Number.isFinite(storeId) && storeId > 0) {
+        return {
+          mode: "store",
+          storeId,
+          importerId: null,
+          from: "url",
+        };
+      }
+
+      if (Number.isFinite(importerId) && importerId > 0) {
+        return {
+          mode: "importer",
+          storeId: null,
+          importerId,
+          from: "url",
+        };
+      }
+
+      // URLに無ければ、スライダー遷移後などのため sessionStorage から復元
+      const snap = readQrContextSnapshot();
+      if (snap?.mode === "store" && Number(snap.store_id) > 0) {
+        return {
+          mode: "store",
+          storeId: Number(snap.store_id),
+          importerId: null,
+          from: "session",
+        };
+      }
+
+      if (snap?.mode === "importer" && Number(snap.importer_id) > 0) {
+        return {
+          mode: "importer",
+          storeId: null,
+          importerId: Number(snap.importer_id),
+          from: "session",
+        };
+      }
+
       return {
-        storeId: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
-        importerId: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+        mode: null,
+        storeId: null,
+        importerId: null,
+        from: "none",
       };
     } catch {
-      return { storeId: null, importerId: null };
+      return {
+        mode: null,
+        storeId: null,
+        importerId: null,
+        from: "error",
+      };
     }
   }, [location.search]);
 
+  //////2026.05.以下を置き換え
   const fetchQrContext = useCallback(async () => {
-    const { storeId, importerId } = getQrParamsFromSearch();
+//////    const { storeId, importerId } = getQrParamsFromSearch();
+//////
+//////    if (!storeId && !importerId) {
+//////      setQrContext(null);
+//////      setQrTargetJansSet(new Set());
+//////      return;
+//////    }
+    const { mode, storeId, importerId, from } = getQrParamsFromSearch();
 
     if (!storeId && !importerId) {
       setQrContext(null);
@@ -1155,8 +1315,22 @@ function MapPage() {
         ? json.target_jans.map(String).filter(Boolean)
         : [];
 
-      setQrContext(json || null);
+      //////2026.05.以下2行を13行と置き換え
+//////      setQrContext(json || null);
+//////      setQrTargetJansSet(new Set(targetJans));
+      const nextContext = {
+        ...(json || {}),
+        mode: json?.mode || mode,
+        store_id: json?.store_id ?? storeId ?? null,
+        importer_id: json?.importer_id ?? importerId ?? null,
+        source: from,
+      };
+
+      setQrContext(nextContext);
       setQrTargetJansSet(new Set(targetJans));
+
+      // URLから来た文脈、またはAPI成功した文脈は sessionStorage に保存
+      writeQrContextSnapshot(nextContext);
     } catch (e) {
       if (e?.name === "AbortError") return;
       console.error("[MapPage] QR context fetch error", e);
@@ -2001,7 +2175,20 @@ function MapPage() {
       setHighlightedJAN(janStr);
 
       if (isProductsRoute) {
-        const nextSearch = buildSearchWithoutQrSrc(location.search);
+        //////2026.05.以下を12行と置き換え
+//////        const nextSearch = buildSearchWithoutQrSrc(location.search);
+        const currentSearch = buildSearchWithoutQrSrc(location.search);
+        const params = new URLSearchParams(currentSearch);
+
+        if (qrContext?.mode === "store" && qrContext?.store_id) {
+          params.set("store_id", String(qrContext.store_id));
+        }
+
+        if (qrContext?.mode === "importer" && qrContext?.importer_id) {
+          params.set("importer_id", String(qrContext.importer_id));
+        }
+
+        const nextSearch = params.toString() ? `?${params.toString()}` : "";
 
         navigate(
           {
@@ -2033,6 +2220,7 @@ function MapPage() {
       location.search,
       navigate,
       focusOnWine,
+      qrContext,
     ]
   );
 
