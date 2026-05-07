@@ -256,7 +256,7 @@ export default function SearchPanel({
           params.set("jan_codes", chunk.join(","));
 
           const res = await fetch(
-            `${API_BASE}/api/app/map-products/mini?${params.toString()}`,
+            `${API_BASE}/api/qr/map-products/mini?${params.toString()}`,
             {
               method: "GET",
               headers: {
