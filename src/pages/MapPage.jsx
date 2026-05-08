@@ -866,48 +866,13 @@ function MapPage() {
   const wishOverrideRef = useRef(new Map()); // jan -> { value:boolean, at:number }
   const lastWishLocalAtRef = useRef(0);
 
-//////2026.05.以下削除
-//////  //////2026.04.以下の1セクションすべてを追加
-//////  //---------------------------------------------------------------------------------
-//////  // QR流入: store_id があれば main_store_id 未設定時のみ保存
-//////  // - 既存値は上書きしない
-//////  // - 保存できたら storeContextKey を同期して allowed-jans 再取得の流れに乗せる
-//////  useEffect(() => {
-//////    try {
-//////      const params = new URLSearchParams(location.search);
-//////      const raw = params.get("store_id");
-//////      if (!raw) return;
-//////
-//////      const sid = Number(raw);
-//////      if (!Number.isFinite(sid) || sid <= 0) return;
-//////
-//////      const existing = getCurrentMainStoreIdSafe();
-//////      if (existing) return;
-//////
-//////      localStorage.setItem("main_store", String(sid));
-//////
-//////      // selectedStore が未設定なら最低限 main_store_id として読めるようにする
-//////      // （StorePanel 側の詳細オブジェクトはここでは作らない）
-//////      try {
-//////        const selectedStoreRaw = localStorage.getItem("selectedStore");
-//////        if (!selectedStoreRaw) {
-//////          localStorage.setItem("selectedStore", JSON.stringify({ store_id: sid }));
-//////        }
-//////      } catch {}
-//////
-//////      const nextKey = getStoreContextKeyFromStorage();
-//////      setStoreContextKey(nextKey);
-//////    } catch (e) {
-//////      console.warn("QR store_id save failed:", e);
-//////    }
-//////  }, [location.search]);  
-
-  //////2026.04.以下の1セクション35行を追加（アクセスログ）
-  //////2026.05.以下1セクションを置き換え
+  //////2026.05.以下1セクションと置き換え
   //---------------------------------------------------------------------------------
   // QR流入アクセスログ
-  // - /products/:jan?store_id=... または importer_id=... の初回だけ qr_landing を送る
-  // - src=qr には依存しない
+  // - QR文脈つきURLで最初に入った1回だけ qr_landing を送る
+  // - その後、同じQR文脈で別商品へ遷移しても qr_landing は送らない
+  const QR_LANDING_LOGGED_KEY = "tm_qr_landing_logged_v1";
+
   useEffect(() => {
     const janStr = String(routeJan || "").trim();
     if (!janStr) return;
@@ -920,15 +885,40 @@ function MapPage() {
     // QR文脈がない通常URLでは送らない
     if (!ctx.store_id && !ctx.importer_id) return;
 
-    const key = `${janStr}|store=${ctx.store_id || ""}|importer=${ctx.importer_id || ""}`;
-    if (qrLandingLoggedRef.current.has(key)) return;
-    qrLandingLoggedRef.current.add(key);
+    const contextKey = `store=${ctx.store_id || ""}|importer=${ctx.importer_id || ""}`;
+
+    // このタブで同じQR文脈のlandingをすでに送っていたら送らない
+    try {
+      const raw = sessionStorage.getItem(QR_LANDING_LOGGED_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.context_key === contextKey) return;
+      }
+    } catch {}
+
+    // ref側でも二重実行防止（React StrictMode / effect再実行対策）
+    const refKey = `${contextKey}|first=${janStr}`;
+    if (qrLandingLoggedRef.current.has(refKey)) return;
+    qrLandingLoggedRef.current.add(refKey);
 
     sendAccessLog({
       event_type: "qr_landing",
       jan_code: janStr,
       search: location.search,
     });
+
+    try {
+      sessionStorage.setItem(
+        QR_LANDING_LOGGED_KEY,
+        JSON.stringify({
+          context_key: contextKey,
+          first_jan: janStr,
+          store_id: ctx.store_id || null,
+          importer_id: ctx.importer_id || null,
+          logged_at: new Date().toISOString(),
+        })
+      );
+    } catch {}
 
     // 互換：src=qr が付いている古いURLだけ src を落とす
     const nextSearch = buildSearchWithoutQrSrc(location.search);
@@ -941,7 +931,7 @@ function MapPage() {
         { replace: true, state: location.state }
       );
     }
-  }, [routeJan, location.pathname, location.search, location.state, navigate]);  
+  }, [routeJan, location.pathname, location.search, location.state, navigate]);
 
   //////2026.04.以下の1セクションを追加（位置情報）
   //---------------------------------------------------------------------------------
