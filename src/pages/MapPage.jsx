@@ -975,23 +975,6 @@ function MapPage() {
     };
   }, []);
 
-//////2026.05.以下削除  
-//////  //---------------------------------------------------------------------------------
-//////  // 重要：未ログインで mainStoreId が無い状態を許容しない（0点/全点の暴れ源）
-//////  // - 「MapPage前に必ずStore選択」の旧仕様に戻す
-//////  useEffect(() => {
-//////    let token = "";
-//////    try { token = localStorage.getItem("app.access_token") || ""; } catch {}
-//////    if (token) return; // ログイン済みは /allowed-jans/auto で復元できるので許容
-//////
-//////    let main = null;
-//////    try { main = getCurrentMainStoreIdSafe(); } catch {}
-//////    if (!main) {
-//////      // mainStoreId が無い＝表示すべき打点が決められないので StorePage へ戻す
-//////      navigate("/store", { replace: true });
-//////    }
-//////  }, [navigate]);
-
   //////2026.04.以下1セクションを追加
   //---------------------------------------------------------------------------------
   // base層:
@@ -1008,8 +991,25 @@ function MapPage() {
   //---------------------------------------------------------------------------------
   // QR表示打点:
   // base(points JSON ∩ active_jans) ∩ QR対象JAN
+//////  const qrVisiblePoints = useMemo(() => {
+//////    if (!Array.isArray(basePoints) || basePoints.length === 0) return [];
+//////
+//////    if (!(qrTargetJansSet instanceof Set) || qrTargetJansSet.size === 0) {
+//////      return [];
+//////    }
+//////
+//////    return basePoints.filter((d) =>
+//////      qrTargetJansSet.has(String(getJanFromItem(d)))
+//////    );
+//////  }, [basePoints, qrTargetJansSet]);
+  //////2026.05.以下1セクションと置き換え
   const qrVisiblePoints = useMemo(() => {
     if (!Array.isArray(basePoints) || basePoints.length === 0) return [];
+
+    // 直前のbase表示を維持して、読み込み完了後にQR対象へ絞る
+    if (qrContextLoading) {
+      return basePoints;
+    }
 
     if (!(qrTargetJansSet instanceof Set) || qrTargetJansSet.size === 0) {
       return [];
@@ -1018,7 +1018,7 @@ function MapPage() {
     return basePoints.filter((d) =>
       qrTargetJansSet.has(String(getJanFromItem(d)))
     );
-  }, [basePoints, qrTargetJansSet]);
+  }, [basePoints, qrTargetJansSet, qrContextLoading]);
 
   const qrVisibleJansSet = useMemo(() => {
     return new Set(
@@ -1041,34 +1041,8 @@ function MapPage() {
     });
   }, [location.search, qrContext, basePoints, qrTargetJansSet, qrVisiblePoints]);
 
-//////2026.05.以下を削除
-//////  //---------------------------------------------------------------------------------
-//////  // ---- JanSet（ visibleJanSet, allJanSet ）----
-//////  // --- 描画用の主集合（visible）---
-//////  // allowedJansSet があるならそれを優先 - 無いなら「全打点OK」（表示フォールバック）- storeJansSet（店舗集合）とは混ぜない
-//////  const visibleJansSet = useMemo(() => {
-//////    // allowed が「未確定（空）」の瞬間は 0点にしない（全点フォールバック）- allowed が確定（size>0）したらそれを採用
-//////    if (allowedJansSet instanceof Set && allowedJansSet.size > 0) {
-//////      return allowedJansSet;
-//////    }
-//////    return null;        // null = 全点フォールバック扱い
-//////  }, [allowedJansSet]);
-//////
-//////  //////2026.04.以下1セクションを置き換え
-//////  // --- 全点フォールバック用 ---
-//////  // base層（points ∩ active_jans）を “表示してよい全打点” とする
-//////  const allJansSet = useMemo(() => {
-//////    const list = Array.isArray(basePoints) ? basePoints : [];
-//////    return new Set(
-//////      list.map((d) => String(getJanFromItem(d))).filter(Boolean)
-//////    );
-//////  }, [basePoints]);
-
   // --- MapCanvas に渡す “見える集合” を確定（参照安定）---
   //////2026.05.以下の行を置き換え
-//////  const visibleJansSetForCanvas = useMemo(() => {
-//////    return visibleJansSet instanceof Set ? visibleJansSet : allJansSet;
-//////  }, [visibleJansSet, allJansSet]);
   const visibleJansSetForCanvas = useMemo(() => {
     return qrVisibleJansSet;
   }, [qrVisibleJansSet]);
@@ -1077,12 +1051,14 @@ function MapPage() {
   // MapCanvas側で null を“制限なし”として扱う
   //////2026.05.以下の行を置き換え
 //////  const allowedJansSetForCanvas = useMemo(() => {
-//////    if (!(allowedJansSet instanceof Set)) return null;
-//////    return allowedJansSet.size > 0 ? allowedJansSet : null;
-//////  }, [allowedJansSet]);
+//////    return qrVisibleJansSet.size > 0 ? qrVisibleJansSet : new Set();
+//////  }, [qrVisibleJansSet]);
   const allowedJansSetForCanvas = useMemo(() => {
+    // QR文脈取得中は制限なし扱いにして、0点確定を避ける
+    if (qrContextLoading) return null;
+
     return qrVisibleJansSet.size > 0 ? qrVisibleJansSet : new Set();
-  }, [qrVisibleJansSet]);
+  }, [qrVisibleJansSet, qrContextLoading]);
   
   //////2026.04.以下1セクションを置き換え
   //---------------------------------------------------------------------------------
@@ -1093,12 +1069,6 @@ function MapPage() {
     if (!selectedJAN) return "";
     const base = process.env.PUBLIC_URL || "";
     const jan = encodeURIComponent(String(selectedJAN));
-//////    const ctx = encodeURIComponent(String(storeContextKey || ""));
-//////    const nonce = encodeURIComponent(String(iframeNonce || 0));
-//////2026.05.以下を置き換え
-//////    // HashRouter 前提： /#/product-frame/:jan
-//////    return `${base}/#/product-frame/${jan}?embed=1&ctx=${ctx}&_=${nonce}`;
-//////  }, [selectedJAN, storeContextKey, iframeNonce]);
     const params = new URLSearchParams();
     params.set("embed", "1");
     params.set("ctx", String(storeContextKey || ""));
@@ -1190,27 +1160,6 @@ function MapPage() {
   }, []);
 
   //////2026.05.以下1セクションを置き換え
-//////  //////2026.05.以下1セクションすべてを追加
-//////  //---------------------------------------------------------------------------------
-//////  // QR文脈取得
-//////  const getQrParamsFromSearch = useCallback(() => {
-//////    try {
-//////      const params = new URLSearchParams(location.search);
-//////
-//////      const rawStoreId = params.get("store_id");
-//////      const rawImporterId = params.get("importer_id");
-//////
-//////      const storeId = rawStoreId ? Number(rawStoreId) : null;
-//////      const importerId = rawImporterId ? Number(rawImporterId) : null;
-//////
-//////      return {
-//////        storeId: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
-//////        importerId: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
-//////      };
-//////    } catch {
-//////      return { storeId: null, importerId: null };
-//////    }
-//////  }, [location.search]);
   //---------------------------------------------------------------------------------
   // QR文脈取得
   const getQrParamsFromSearch = useCallback(() => {
@@ -1284,15 +1233,7 @@ function MapPage() {
     }
   }, [location.search]);
 
-  //////2026.05.以下を置き換え
   const fetchQrContext = useCallback(async () => {
-//////    const { storeId, importerId } = getQrParamsFromSearch();
-//////
-//////    if (!storeId && !importerId) {
-//////      setQrContext(null);
-//////      setQrTargetJansSet(new Set());
-//////      return;
-//////    }
     const { mode, storeId, importerId, from } = getQrParamsFromSearch();
 
     if (!storeId && !importerId) {
@@ -1329,9 +1270,6 @@ function MapPage() {
         ? json.target_jans.map(String).filter(Boolean)
         : [];
 
-      //////2026.05.以下2行を13行と置き換え
-//////      setQrContext(json || null);
-//////      setQrTargetJansSet(new Set(targetJans));
       const nextContext = {
         ...(json || {}),
         mode: json?.mode || mode,
@@ -1359,18 +1297,18 @@ function MapPage() {
     }
   }, [getQrParamsFromSearch]);
 
-  //////2026.04.以下1セクションを置き換え
+  //////2026.05.以下1セクションを置き換え
   //---------------------------------------------------------------------------------
   // 検索パネルに渡すデータ
-//////  // - 一覧表示は base層全点をそのまま使う
-//////  // - 評価/飲みたいは別パネルで見る前提
 //////  const searchPanelData = useMemo(() => {
-//////    return Array.isArray(basePoints) ? basePoints : [];
-//////  }, [basePoints]);
-  //////2026.05.以下1セクションを置き換え
+//////    return Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
+//////  }, [qrVisiblePoints]);
   const searchPanelData = useMemo(() => {
+    if (qrContextLoading) {
+      return Array.isArray(basePoints) ? basePoints : [];
+    }
     return Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
-  }, [qrVisiblePoints]);
+  }, [qrContextLoading, basePoints, qrVisiblePoints]);
 
   //////2026.04.一時ログ追加のため以下6行を追加
   useEffect(() => {
@@ -2189,35 +2127,6 @@ function MapPage() {
       setHighlightedJAN(janStr);
 
       //////2026.05.以下1セクションと置き換え
-//////      if (isProductsRoute) {
-//////        //////2026.05.以下を12行と置き換え
-////////////        const nextSearch = buildSearchWithoutQrSrc(location.search);
-//////        const currentSearch = buildSearchWithoutQrSrc(location.search);
-//////        const params = new URLSearchParams(currentSearch);
-//////
-//////        if (qrContext?.mode === "store" && qrContext?.store_id) {
-//////          params.set("store_id", String(qrContext.store_id));
-//////        }
-//////
-//////        if (qrContext?.mode === "importer" && qrContext?.importer_id) {
-//////          params.set("importer_id", String(qrContext.importer_id));
-//////        }
-//////
-//////        const nextSearch = params.toString() ? `?${params.toString()}` : "";
-//////
-//////        navigate(
-//////          {
-//////            pathname: `/products/${encodeURIComponent(janStr)}`,
-//////            search: nextSearch,
-//////          },
-//////          { replace: false }
-//////        );
-//////
-//////        if (item) {
-//////          focusOnWine(item, { zoom: opts.zoom });
-//////        }
-//////        return;
-//////      }
       if (isProductsRoute) {
         const currentSearch = buildSearchWithoutQrSrc(location.search);
         const params = new URLSearchParams(currentSearch);
@@ -2271,7 +2180,7 @@ function MapPage() {
     ]
   );
 
-  //////2026.04.上記を以下の1セクションと置き換え
+  //////2026.04.以下の1セクションと置き換え
   //---------------------------------------------------------------------------------
   // /products/:jan で来た時は MapPage 上で商品Drawerを開く
   useEffect(() => {
@@ -2309,39 +2218,6 @@ function MapPage() {
   }, [routeJan, basePoints, data, focusOnWine]);
 
   // 最近傍（ワールド座標：DeckGLの座標系 = [UMAP1, -UMAP2]）
-//////  const findNearestWineWorld = useCallback(
-//////    (wx, wy) => {
-//////      //////2026.05.以下2行と置き換え
-////////////      if (!Array.isArray(data) || data.length === 0) return null;
-//////      const src = Array.isArray(qrVisiblePoints) ? qrVisiblePoints : [];
-//////      if (src.length === 0) return null;
-//////      let best = null,
-//////        bestD2 = Infinity;
-////////////      const storeSetValid = storeJansSet && storeJansSet.size > 0;
-//////      //////2026.05.以下1行と置き換え        
-////////////      for (const d of data) {
-//////      for (const d of src) {
-//////        const jan = String(getJanFromItem(d));
-//////        // 店舗集合が信頼できるときだけ「店舗のみ」に絞る
-//////        // 不明なときは絞らない（= 店舗集合を捏造しない）
-////////////        if (storeSetValid && !storeJansSet.has(jan)) continue;
-//////
-//////        const x = d.umap_x,
-//////          y = -d.umap_y;
-//////        const dx = x - wx,
-//////          dy = y - wy;
-//////        const d2 = dx * dx + dy * dy;
-//////        if (d2 < bestD2) {
-//////          bestD2 = d2;
-//////          best = d;
-//////        }
-//////      }
-//////      return best;
-//////    },
-//////    //////2026.05.以下1行と置き換え
-////////////    [data, storeJansSet]
-//////    [qrVisiblePoints]
-//////  );
   //////2026.05.以下1セクションと置き換え
   const findNearestWineWorld = useCallback(
     (wx, wy) => {
