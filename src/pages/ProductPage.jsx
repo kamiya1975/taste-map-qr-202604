@@ -52,6 +52,22 @@ const postToParent = (payload) => {
 //------------------------------------------------------
 // ログ送信関数（共通）
 const getQrContextForLog = () => {
+  // 1) MapPage が保存したQR文脈を最優先
+  try {
+    const raw = sessionStorage.getItem("tm_qr_context_v1");
+    if (raw) {
+      const ctx = JSON.parse(raw);
+      const storeId = Number(ctx?.store_id);
+      const importerId = Number(ctx?.importer_id);
+
+      return {
+        store_id: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
+        importer_id: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+      };
+    }
+  } catch {}
+
+  // 2) iframe URL上の store_id/importer_id をフォールバック
   try {
     const searchText =
       window.location.search ||
@@ -83,10 +99,10 @@ const postAccessLog = async ({ event_type, jan_code, source }) => {
     jan_code: String(jan_code),
     session_id: (() => {
       try {
-        let sid = sessionStorage.getItem("tm_session_id");
+        let sid = sessionStorage.getItem("tm_access_log_session_id");
         if (!sid) {
           sid = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-          sessionStorage.setItem("tm_session_id", sid);
+          sessionStorage.setItem("tm_access_log_session_id", sid);
         }
         return sid;
       } catch {
@@ -95,7 +111,7 @@ const postAccessLog = async ({ event_type, jan_code, source }) => {
     })(),
     store_id: ctx.store_id,
     importer_id: ctx.importer_id,
-    source: source || null,
+    source: event_type === "product_open" ? source || null : null,
   };
 
   try {
@@ -1175,7 +1191,6 @@ export default function ProductPage() {
     postAccessLog({
       event_type: "product_slider",
       jan_code: nearest.JAN,
-      source: "product_detail",
     });
 
     localStorage.setItem(

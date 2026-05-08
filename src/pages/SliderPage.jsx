@@ -41,7 +41,6 @@ const getQrContextForLog = () => {
     if (!raw) return { store_id: null, importer_id: null };
 
     const ctx = JSON.parse(raw);
-
     const storeId = Number(ctx?.store_id);
     const importerId = Number(ctx?.importer_id);
 
@@ -56,10 +55,13 @@ const getQrContextForLog = () => {
 
 const getSessionId = () => {
   try {
-    let sid = sessionStorage.getItem("tm_session_id");
+    let sid = sessionStorage.getItem("tm_access_log_session_id");
     if (!sid) {
-      sid = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      sessionStorage.setItem("tm_session_id", sid);
+      sid =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem("tm_access_log_session_id", sid);
     }
     return sid;
   } catch {
@@ -78,7 +80,7 @@ const postAccessLog = async ({ event_type, jan_code, source }) => {
     session_id: getSessionId(),
     store_id: ctx.store_id,
     importer_id: ctx.importer_id,
-    source: source || null,
+    source: event_type === "product_open" ? source || null : null,
   };
 
   try {
@@ -382,7 +384,6 @@ export default function SliderPage() {
       postAccessLog({
         event_type: "standard_slider",
         jan_code: loggedJan,
-        source: "standard_slider",
       });
     }
 
