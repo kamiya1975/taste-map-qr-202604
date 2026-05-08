@@ -1304,7 +1304,7 @@ export default function ProductPage() {
             {displayPrice || null}
           </div>
 
-          {availabilityLine && (
+          {false && availabilityLine && (
             <div
               style={{
                 marginTop: 2,
@@ -1319,8 +1319,8 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* カートに入れる（EC対象商品のときだけ表示） */}
-      {canShowCartButton && (
+      {/* カートに入れる（QR版では一旦非表示） */}
+      {false && canShowCartButton && (
         <div style={{ margin: "8px 0 16px" }}>
           <button
             onClick={handleAddToCart}
