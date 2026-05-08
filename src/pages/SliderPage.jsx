@@ -30,6 +30,70 @@ const centerGradient = (val) => {
   return `linear-gradient(to right, ${base} 0%, ${base} ${a}%, ${active} ${a}%, ${active} ${b}%, ${base} ${b}%, ${base} 100%)`;
 };
 
+//////2026.05.以下1セクションを追加
+//------------------------------------------------------
+// ログ送信関数（関数）
+const API_BASE = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_BASE || "";
+
+const getQrContextForLog = () => {
+  try {
+    const raw = sessionStorage.getItem("tm_qr_context_v1");
+    if (!raw) return { store_id: null, importer_id: null };
+
+    const ctx = JSON.parse(raw);
+
+    const storeId = Number(ctx?.store_id);
+    const importerId = Number(ctx?.importer_id);
+
+    return {
+      store_id: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
+      importer_id: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+    };
+  } catch {
+    return { store_id: null, importer_id: null };
+  }
+};
+
+const getSessionId = () => {
+  try {
+    let sid = sessionStorage.getItem("tm_session_id");
+    if (!sid) {
+      sid = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem("tm_session_id", sid);
+    }
+    return sid;
+  } catch {
+    return null;
+  }
+};
+
+const postAccessLog = async ({ event_type, jan_code, source }) => {
+  if (!event_type || !jan_code) return;
+
+  const ctx = getQrContextForLog();
+
+  const payload = {
+    event_type,
+    jan_code: String(jan_code),
+    session_id: getSessionId(),
+    store_id: ctx.store_id,
+    importer_id: ctx.importer_id,
+    source: source || null,
+  };
+
+  try {
+    await fetch(`${API_BASE}/api/app/access-logs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch (e) {
+    console.warn("[access log] failed:", e);
+  }
+};
+//------------------------------------------------------
+
 /**
  * PC → スライダー(0–100)
  * 0   : minPC
@@ -245,12 +309,13 @@ export default function SliderPage() {
   const handleGenerate = () => {
     if (!referenceLot || !pcMinMax || !rows.length) return;
 
+    let loggedJan = null;
     const { minPC1, maxPC1, minPC2, maxPC2, minPC3, maxPC3 } = pcMinMax;
     const basePC1 = num(referenceLot.pc1);
     const basePC2 = num(referenceLot.pc2);
     const basePC3 = num(referenceLot.pc3);
 
-    // ★初期スライダー位置のままなら、必ず基準ロットのUMAPにピンを立てる
+    // 初期スライダー位置のままなら、必ず基準ロットのUMAPにピンを立てる
     const isAtInitial =
       initialSliders &&
       acidity === initialSliders.acidity &&
@@ -265,6 +330,7 @@ export default function SliderPage() {
       const umapX = referenceLot.umap_x;
       const umapY = referenceLot.umap_y;
 
+      loggedJan = referenceLot.JAN || null;
       localStorage.setItem(
         "userPinCoords",
         JSON.stringify({
@@ -280,7 +346,7 @@ export default function SliderPage() {
         })
       );
     } else {
-      // ★好みを動かした場合は、PC → 最近傍ワイン → そのUMAP
+      // 好みを動かした場合は、PC → 最近傍ワイン → そのUMAP
       const pc1Value = sliderToPCCenter(body, minPC1, basePC1, maxPC1);
       const pc2Value = sliderToPCCenter(sweetness, minPC2, basePC2, maxPC2);
       const pc3Value = sliderToPCCenter(acidity, minPC3, basePC3, maxPC3);
@@ -288,6 +354,7 @@ export default function SliderPage() {
       const nearest = findNearestWineByPC(rows, pc1Value, pc2Value, pc3Value);
       if (!nearest) return;
 
+      loggedJan = nearest.JAN || null;
       const umapX = nearest.UMAP1;
       const umapY = nearest.UMAP2;
 
@@ -310,6 +377,14 @@ export default function SliderPage() {
     try {
       sessionStorage.setItem("tm_center_on_userpin", "1");
     } catch {}
+
+    if (loggedJan) {
+      postAccessLog({
+        event_type: "standard_slider",
+        jan_code: loggedJan,
+        source: "standard_slider",
+      });
+    }
 
     navigate("/map?open=position", { state: { centerOnUserPin: true } });
   };

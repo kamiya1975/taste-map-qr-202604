@@ -48,6 +48,69 @@ const postToParent = (payload) => {
   } catch {}
 };
 
+//////2026.05.以下1セクション追加
+//------------------------------------------------------
+// ログ送信関数（共通）
+const getQrContextForLog = () => {
+  try {
+    const searchText =
+      window.location.search ||
+      (window.location.hash.includes("?")
+        ? `?${window.location.hash.split("?")[1]}`
+        : "");
+
+    const params = new URLSearchParams(searchText);
+
+    const storeId = Number(params.get("store_id"));
+    const importerId = Number(params.get("importer_id"));
+
+    return {
+      store_id: Number.isFinite(storeId) && storeId > 0 ? storeId : null,
+      importer_id: Number.isFinite(importerId) && importerId > 0 ? importerId : null,
+    };
+  } catch {
+    return { store_id: null, importer_id: null };
+  }
+};
+
+const postAccessLog = async ({ event_type, jan_code, source }) => {
+  if (!event_type || !jan_code) return;
+
+  const ctx = getQrContextForLog();
+
+  const payload = {
+    event_type,
+    jan_code: String(jan_code),
+    session_id: (() => {
+      try {
+        let sid = sessionStorage.getItem("tm_session_id");
+        if (!sid) {
+          sid = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          sessionStorage.setItem("tm_session_id", sid);
+        }
+        return sid;
+      } catch {
+        return null;
+      }
+    })(),
+    store_id: ctx.store_id,
+    importer_id: ctx.importer_id,
+    source: source || null,
+  };
+
+  try {
+    await fetch(`${API_BASE}/api/app/access-logs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch (e) {
+    console.warn("[access log] failed:", e);
+  }
+};
+//------------------------------------------------------
+
 // アプリ側ログイン確認（access token 有無）
 const isAppLoggedIn = () => {
   try {
@@ -95,7 +158,7 @@ const notifyParentClosed = (jan_code) => {
 };
 
 //////2026.05.以下1セクション追加
-//---------------------------------------------------------------------------------
+//------------------------------------------------------
 // スライダー追加
 const num = (v, def = 0) => {
   const n = Number(v);
@@ -171,7 +234,7 @@ const findNearestWineByPC = (rows, px, py, pz) => {
   }
   return best;
 };
-//---------------------------------------------------------------------------------
+//------------------------------------------------------
 
 /** =========================
  *  飲みたい（☆/★）
@@ -1074,6 +1137,7 @@ export default function ProductPage() {
   };
 
   //////2026.05.以下1セクションを追加
+  //------------------------------------------------------
   const canUseProductSlider =
     !!productPoint &&
     !!referenceLot &&
@@ -1107,6 +1171,12 @@ export default function ProductPage() {
         : findNearestWineByPC(sliderRows, pc1Value, pc2Value, pc3Value);
 
     if (!nearest) return;
+
+    postAccessLog({
+      event_type: "product_slider",
+      jan_code: nearest.JAN,
+      source: "product_detail",
+    });
 
     localStorage.setItem(
       "userPinCoords",
@@ -1147,7 +1217,7 @@ export default function ProductPage() {
       bc.close();
     } catch {}
   };
-  //---------------------------------------------------------------
+  //------------------------------------------------------
 
   if (loading && !product) {
     return <div style={{ padding: 16 }}>読み込み中です…</div>;
