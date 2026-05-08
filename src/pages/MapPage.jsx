@@ -903,10 +903,11 @@ function MapPage() {
 //////  }, [location.search]);  
 
   //////2026.04.以下の1セクション35行を追加（アクセスログ）
+  //////2026.05.以下1セクションを置き換え
   //---------------------------------------------------------------------------------
   // QR流入アクセスログ
-  // - /products/:jan?src=qr... の初回だけ qr_landing を送る
-  // - 送信後は src=qr だけ URL から落とし、store_id / importer_id は残す
+  // - /products/:jan?store_id=... または importer_id=... の初回だけ qr_landing を送る
+  // - src=qr には依存しない
   useEffect(() => {
     const janStr = String(routeJan || "").trim();
     if (!janStr) return;
@@ -914,21 +915,24 @@ function MapPage() {
     const isProductsRoute = /^\/products\/[^/]+$/.test(location.pathname);
     if (!isProductsRoute) return;
 
-    const { src } = readAccessLogContextFromSearch(location.search);
-    if (src !== "qr") return;
+    const ctx = readAccessLogContextFromSearch(location.search);
 
-    const key = `${location.pathname}?${location.search}`;
+    // QR文脈がない通常URLでは送らない
+    if (!ctx.store_id && !ctx.importer_id) return;
+
+    const key = `${janStr}|store=${ctx.store_id || ""}|importer=${ctx.importer_id || ""}`;
     if (qrLandingLoggedRef.current.has(key)) return;
     qrLandingLoggedRef.current.add(key);
 
-    (async () => {
-      await sendAccessLog({
-        event_type: "qr_landing",
-        jan_code: janStr,
-        search: location.search,
-      });
+    sendAccessLog({
+      event_type: "qr_landing",
+      jan_code: janStr,
+      search: location.search,
+    });
 
-      const nextSearch = buildSearchWithoutQrSrc(location.search);
+    // 互換：src=qr が付いている古いURLだけ src を落とす
+    const nextSearch = buildSearchWithoutQrSrc(location.search);
+    if (nextSearch !== location.search) {
       navigate(
         {
           pathname: location.pathname,
@@ -936,9 +940,9 @@ function MapPage() {
         },
         { replace: true, state: location.state }
       );
-    })();
-  }, [routeJan, location.pathname, location.search, location.state, navigate]);
-  
+    }
+  }, [routeJan, location.pathname, location.search, location.state, navigate]);  
+
   //////2026.04.以下の1セクションを追加（位置情報）
   //---------------------------------------------------------------------------------
   // 位置情報の初期取得＆更新（silent）
