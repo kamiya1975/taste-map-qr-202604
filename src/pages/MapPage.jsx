@@ -2866,7 +2866,7 @@ function MapPage() {
       </button>
 
       {/* 右上ボタン群: カートパネルボタン */}
-      {cartEnabled && (
+      {false && cartEnabled && (
       <button
         onClick={() => openPanel("cart")}
         style={{
