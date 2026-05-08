@@ -451,6 +451,7 @@ function getOrCreateAccessLogSessionId() {
 }
 
 function readAccessLogContextFromSearch(search) {
+  // 1) URLの store_id / importer_id を優先
   try {
     const params = new URLSearchParams(search || "");
     const src = params.get("src") || null;
@@ -461,15 +462,34 @@ function readAccessLogContextFromSearch(search) {
     const storeIdNum = rawStoreId != null ? Number(rawStoreId) : null;
     const importerIdNum = rawImporterId != null ? Number(rawImporterId) : null;
 
-    return {
-      src,
-      store_id:
-        Number.isFinite(storeIdNum) && storeIdNum > 0 ? storeIdNum : null,
-      importer_id:
-        Number.isFinite(importerIdNum) && importerIdNum > 0
-          ? importerIdNum
-          : null,
-    };
+    const store_id =
+      Number.isFinite(storeIdNum) && storeIdNum > 0 ? storeIdNum : null;
+
+    const importer_id =
+      Number.isFinite(importerIdNum) && importerIdNum > 0 ? importerIdNum : null;
+
+    if (store_id || importer_id) {
+      return { src, store_id, importer_id };
+    }
+
+    // 2) URLに無ければ QR文脈 snapshot を見る
+    const raw = sessionStorage.getItem("tm_qr_context_v1");
+    if (raw) {
+      const ctx = JSON.parse(raw);
+
+      const snapStoreId = Number(ctx?.store_id);
+      const snapImporterId = Number(ctx?.importer_id);
+
+      return {
+        src,
+        store_id:
+          Number.isFinite(snapStoreId) && snapStoreId > 0 ? snapStoreId : null,
+        importer_id:
+          Number.isFinite(snapImporterId) && snapImporterId > 0 ? snapImporterId : null,
+      };
+    }
+
+    return { src, store_id: null, importer_id: null };
   } catch {
     return { src: null, store_id: null, importer_id: null };
   }
